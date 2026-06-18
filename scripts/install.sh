@@ -6,6 +6,8 @@ REF_DEFAULT="main"
 
 REPO="${OPENVIKING_PLUGINS_REPO:-$REPO_DEFAULT}"
 REF="${OPENVIKING_PLUGINS_REF:-$REF_DEFAULT}"
+OV_HOME="${OPENVIKING_HOME:-$HOME/.openviking}"
+REPO_DIR="${OPENVIKING_REPO_DIR:-$OV_HOME/openviking-plugins-repo}"
 TARGET="${1:-}"
 
 usage() {
@@ -30,6 +32,7 @@ OpenViking 插件安装器
   OPENVIKING_PLUGINS_CLAUDE_INSTALL_URL    Claude Code 安装脚本直连 URL
   OPENVIKING_PLUGINS_CODEX_INSTALL_URL     Codex 安装脚本直连 URL
   OPENVIKING_PLUGINS_OPENCODE_INSTALL_URL  OpenCode 安装脚本直连 URL
+  OPENVIKING_REPO_DIR                      本地插件源码目录，默认：~/.openviking/openviking-plugins-repo
 
 目标后面的额外参数会继续传给对应插件的安装脚本。
 EOF
@@ -57,24 +60,59 @@ download_installer() {
   curl -fsSL "$url" -o "$dest"
 }
 
+prepare_repo() {
+  local repo_url="https://github.com/${REPO}.git"
+  command -v git >/dev/null 2>&1 || die "未找到 git，请先安装 git"
+
+  if [[ -d "$REPO_DIR/.git" ]]; then
+    info "正在更新本地插件源码"
+    git -C "$REPO_DIR" fetch --depth 1 origin "$REF"
+    git -C "$REPO_DIR" reset --hard FETCH_HEAD
+    return
+  fi
+
+  if [[ -e "$REPO_DIR" ]]; then
+    die "$REPO_DIR 已存在，但不是 Git 工作区。请移走该目录，或设置 OPENVIKING_REPO_DIR。"
+  fi
+
+  info "正在克隆插件源码"
+  info "  $repo_url ($REF)"
+  mkdir -p "$(dirname "$REPO_DIR")"
+  git clone --depth 1 "$repo_url" "$REPO_DIR"
+  git -C "$REPO_DIR" fetch --depth 1 origin "$REF"
+  git -C "$REPO_DIR" reset --hard FETCH_HEAD
+}
+
+override_url_for() {
+  local name="$1"
+  case "$name" in
+    claude) printf '%s' "${OPENVIKING_PLUGINS_CLAUDE_INSTALL_URL:-}" ;;
+    codex) printf '%s' "${OPENVIKING_PLUGINS_CODEX_INSTALL_URL:-}" ;;
+    opencode) printf '%s' "${OPENVIKING_PLUGINS_OPENCODE_INSTALL_URL:-}" ;;
+  esac
+}
+
 run_installer() {
   local name="$1"
   local default_url="$2"
-  local url="$default_url"
+  local url
   local tmp
   shift 2
 
-  case "$name" in
-    claude)
-      url="${OPENVIKING_PLUGINS_CLAUDE_INSTALL_URL:-$default_url}"
-      ;;
-    codex)
-      url="${OPENVIKING_PLUGINS_CODEX_INSTALL_URL:-$default_url}"
-      ;;
-    opencode)
-      url="${OPENVIKING_PLUGINS_OPENCODE_INSTALL_URL:-$default_url}"
-      ;;
-  esac
+  url="$(override_url_for "$name")"
+  if [[ -z "$url" ]]; then
+    local local_installer="$REPO_DIR/$name/setup-helper/install.sh"
+    info "正在安装 $name"
+    prepare_repo
+    [[ -f "$local_installer" ]] || die "未找到安装脚本：$local_installer"
+    info "使用本地安装脚本，避免 GitHub raw 缓存"
+    info "  $local_installer"
+    OPENVIKING_REPO_DIR="$REPO_DIR" \
+    OPENVIKING_REPO_URL="https://github.com/${REPO}.git" \
+    OPENVIKING_REPO_BRANCH="$REF" \
+      bash "$local_installer" "$@"
+    return
+  fi
 
   tmp="$(mktemp)"
   trap 'rm -f "'"$tmp"'"' RETURN
