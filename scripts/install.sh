@@ -6,7 +6,6 @@ REF_DEFAULT="main"
 
 REPO="${OPENVIKING_PLUGINS_REPO:-$REPO_DEFAULT}"
 REF="${OPENVIKING_PLUGINS_REF:-$REF_DEFAULT}"
-TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
 TARGET="${1:-}"
 
 usage() {
@@ -18,10 +17,6 @@ Usage:
   bash <(curl -fsSL https://raw.githubusercontent.com/${REPO_DEFAULT}/main/scripts/install.sh) opencode
   bash <(curl -fsSL https://raw.githubusercontent.com/${REPO_DEFAULT}/main/scripts/install.sh) all
 
-Private repository:
-  export GITHUB_TOKEN="\$(gh auth token)"
-  bash <(curl -fsSL -H "Authorization: Bearer \$GITHUB_TOKEN" https://raw.githubusercontent.com/${REPO_DEFAULT}/main/scripts/install.sh) codex
-
 Targets:
   codex      Install the Codex memory plugin.
   opencode   Install the OpenCode memory plugin.
@@ -32,7 +27,6 @@ Environment:
   OPENVIKING_PLUGINS_REF                   Git ref, default: main
   OPENVIKING_PLUGINS_CODEX_INSTALL_URL     Direct Codex installer URL
   OPENVIKING_PLUGINS_OPENCODE_INSTALL_URL  Direct OpenCode installer URL
-  GITHUB_TOKEN / GH_TOKEN                  Token for private GitHub raw downloads
 
 Extra arguments after the target are passed to the target installer.
 EOF
@@ -57,11 +51,7 @@ die() {
 download_installer() {
   local url="$1"
   local dest="$2"
-  local args=(-fsSL)
-  if [[ -n "$TOKEN" ]]; then
-    args+=(-H "Authorization: Bearer ${TOKEN}")
-  fi
-  curl "${args[@]}" "$url" -o "$dest"
+  curl -fsSL "$url" -o "$dest"
 }
 
 run_installer() {

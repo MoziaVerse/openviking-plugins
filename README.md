@@ -10,31 +10,25 @@
 
 ## 统一安装
 
-仓库是私有仓库时，先准备 GitHub token：
-
-```bash
-export GITHUB_TOKEN="$(gh auth token)"
-```
+仓库已公开，安装不需要 GitHub token。
 
 安装 Codex 插件：
 
 ```bash
-bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) codex
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) codex
 ```
 
 安装 OpenCode 插件：
 
 ```bash
-bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) opencode
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) opencode
 ```
 
 两个都安装：
 
 ```bash
-bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) all
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) all
 ```
-
-如果仓库改成公开，可以去掉 `GITHUB_TOKEN` header。
 
 ## Session 命名
 

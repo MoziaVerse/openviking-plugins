@@ -14,8 +14,7 @@
 #   OPENVIKING_REPO_REF / OPENVIKING_REPO_BRANCH, OPENVIKING_CLI_CONFIG_FILE,
 #   OPENVIKING_CODEX_WRAP_EXTRA (extra launch commands to wrap).
 #   OPENVIKING_REPO_ARCHIVE_URL  when set, fetch the source from this zip instead
-#                                of git clone (used by the TOS bootstrap for users
-#                                who can't reach GitHub). Requires `unzip`.
+#                                of git clone. Requires `unzip`.
 
 set -euo pipefail
 
@@ -26,7 +25,6 @@ REPO_DIR="${OPENVIKING_REPO_DIR:-$OV_HOME/openviking-plugins-repo}"
 # reuse the same env var across the claude-code and codex installers.
 REPO_REF="${OPENVIKING_REPO_REF:-${OPENVIKING_REPO_BRANCH:-main}}"
 REPO_ARCHIVE_URL="${OPENVIKING_REPO_ARCHIVE_URL:-}"
-GITHUB_TOKEN_VALUE="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
 # Marks a $REPO_DIR populated from an archive (no .git). Lets re-runs refresh it
 # safely while refusing to clobber a git checkout or unrelated user data.
 ARCHIVE_MARKER='.openviking-archive-source'
@@ -51,19 +49,18 @@ err()     { printf '%sxx%s  %s\n' "$RED" "$RESET" "$*" >&2; }
 ask()     { printf '%s??%s  %s' "$CYAN" "$RESET" "$*"; }
 heading() { printf '\n%s%s%s\n' "$BOLD" "$*" "$RESET"; }
 
-git_cmd() {
-  if [ -n "$GITHUB_TOKEN_VALUE" ]; then
-    local basic
-    basic="$(printf 'x-access-token:%s' "$GITHUB_TOKEN_VALUE" | base64 | tr -d '\n')"
-    git -c "http.https://github.com/.extraheader=Authorization: Basic $basic" "$@"
-  else
-    git "$@"
-  fi
+clone_repo() {
+  git clone --depth 1 --branch "$REPO_REF" "$REPO_URL" "$REPO_DIR"
 }
 
-# Download a source zip and lay it out at $REPO_DIR (used for the GitHub-free
-# TOS install path). The archive is `git archive` output: a single top-level
-# OpenViking-<ref>/ dir, identical to a checkout minus .git.
+refresh_repo() {
+  git -C "$REPO_DIR" fetch --depth 1 origin "$REPO_REF"
+  git -C "$REPO_DIR" reset --hard FETCH_HEAD
+}
+
+# Download a source zip and lay it out at $REPO_DIR. The archive is `git
+# archive` output: a single top-level repo dir, identical to a checkout minus
+# .git.
 fetch_archive() {
   local url="$1" dest="$2" tmp_zip tmp_dir top
   command -v unzip >/dev/null 2>&1 || { err 'unzip not found; required to install from an archive.'; exit 1; }
@@ -71,15 +68,11 @@ fetch_archive() {
   tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/ov-src.XXXXXX") || { err 'mktemp failed'; rm -f "$tmp_zip"; exit 1; }
   info "Downloading source archive"
   info "  $url"
-  if [ -n "$GITHUB_TOKEN_VALUE" ]; then
-    curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN_VALUE" -o "$tmp_zip" "$url" || { err "download failed: $url"; rm -rf "$tmp_zip" "$tmp_dir"; exit 1; }
-  else
-    curl -fsSL -o "$tmp_zip" "$url" || { err "download failed: $url"; rm -rf "$tmp_zip" "$tmp_dir"; exit 1; }
-  fi
+  curl -fsSL -o "$tmp_zip" "$url" || { err "download failed: $url"; rm -rf "$tmp_zip" "$tmp_dir"; exit 1; }
   unzip -q "$tmp_zip" -d "$tmp_dir" || { err 'unzip failed (corrupt download?)'; rm -rf "$tmp_zip" "$tmp_dir"; exit 1; }
   top=$(find "$tmp_dir" -mindepth 1 -maxdepth 1 -type d | head -n 1)
-  if [ -z "$top" ] || [ ! -d "$top/examples" ]; then
-    err 'unexpected archive layout (no top-level dir containing examples/)'
+  if [ -z "$top" ] || [ ! -d "$top/codex" ]; then
+    err 'unexpected archive layout (no top-level dir containing codex/)'
     rm -rf "$tmp_zip" "$tmp_dir"; exit 1
   fi
   rm -rf "$dest"
@@ -229,11 +222,10 @@ elif [ ! -e "$REPO_DIR/.git" ]; then
     exit 1
   fi
   info "Cloning $REPO_URL (branch $REPO_REF, depth 1)"
-  git_cmd clone --depth 1 --branch "$REPO_REF" "$REPO_URL" "$REPO_DIR"
+  clone_repo
 else
   info "Refreshing existing checkout ($REPO_REF)"
-  git_cmd -C "$REPO_DIR" fetch --depth 1 origin "$REPO_REF"
-  git_cmd -C "$REPO_DIR" reset --hard FETCH_HEAD
+  refresh_repo
 fi
 
 PLUGIN_DIR="$REPO_DIR/codex"

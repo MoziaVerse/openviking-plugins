@@ -6,13 +6,6 @@
 bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) opencode
 ```
 
-如果仓库是私有仓库：
-
-```bash
-export GITHUB_TOKEN="$(gh auth token)"
-bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) opencode
-```
-
 插件会安装到：
 
 ```text
@@ -33,7 +26,7 @@ bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubuse
 ```bash
 npm install
 npm run typecheck
-npm run install:local
+npm run install:opencode:local
 ```
 
 卸载：

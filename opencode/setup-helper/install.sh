@@ -32,7 +32,6 @@ Environment:
   OPENVIKING_OPENCODE_REF           Git ref, default: main
   OPENVIKING_OPENCODE_PLUGIN_URL    Direct plugin download URL
   OPENVIKING_OPENCODE_PLUGIN_DIR    Install dir, default: ~/.config/opencode/plugins
-  GITHUB_TOKEN / GH_TOKEN           Token for private GitHub raw downloads
 
 Optional ovcli bootstrap:
   OPENVIKING_OPENCODE_WRITE_OVCLI=1
@@ -112,12 +111,7 @@ maybe_check_opencode() {
 download_file() {
   local url="$1"
   local dest="$2"
-  local token="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
-  local args=(-fsSL)
-  if [[ -n "$token" ]]; then
-    args+=(-H "Authorization: Bearer ${token}")
-  fi
-  curl "${args[@]}" "$url" -o "$dest"
+  curl -fsSL "$url" -o "$dest"
 }
 
 has_ovcli_config() {

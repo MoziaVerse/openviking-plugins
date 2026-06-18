@@ -6,22 +6,19 @@
 
 - OpenViking session id 从官方 `cx-<codex-session-id>` 改为 `<user>-codex-<codex-session-id>`。
 - 默认安装源改为 `MoziaVerse/openviking-plugins`。
-- 支持私有仓库安装时通过 `GITHUB_TOKEN` / `GH_TOKEN` 读取源码。
 
 ## 安装
 
 推荐从仓库根目录统一入口安装：
 
 ```bash
-export GITHUB_TOKEN="$(gh auth token)"
-bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) codex
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) codex
 ```
 
 也可以直接运行 Codex installer：
 
 ```bash
-export GITHUB_TOKEN="$(gh auth token)"
-bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/codex/setup-helper/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/codex/setup-helper/install.sh)
 ```
 
 安装完成后，按提示 `source ~/.zshrc` 或新开终端，然后启动：
