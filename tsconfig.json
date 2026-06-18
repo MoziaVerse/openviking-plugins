@@ -9,5 +9,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["openviking-memory.ts"]
+  "include": ["opencode/openviking-memory.ts"]
 }

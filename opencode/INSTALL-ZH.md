@@ -3,14 +3,14 @@
 推荐使用 curl 一键安装：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-opencode-plugins/main/scripts/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) opencode
 ```
 
 如果仓库是私有仓库：
 
 ```bash
 export GITHUB_TOKEN="$(gh auth token)"
-bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubusercontent.com/MoziaVerse/openviking-opencode-plugins/main/scripts/install.sh)
+bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) opencode
 ```
 
 插件会安装到：
@@ -39,5 +39,5 @@ npm run install:local
 卸载：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-opencode-plugins/main/scripts/install.sh) --uninstall
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) opencode --uninstall
 ```

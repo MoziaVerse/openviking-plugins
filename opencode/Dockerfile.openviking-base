@@ -27,7 +27,7 @@ RUN timeout 180s npm ci \
 COPY . .
 
 RUN npm run typecheck \
-  && npm run install:local \
+  && npm run install:opencode:local \
   && opencode --version
 
-CMD ["npm", "run", "smoke:docker"]
+CMD ["npm", "run", "smoke:opencode:docker"]

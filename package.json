@@ -1,14 +1,15 @@
 {
-  "name": "openviking-opencode-plugins",
+  "name": "openviking-plugins",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Codex-aligned OpenViking memory plugin for OpenCode with automatic recall, session.idle capture, and compaction commit.",
+  "description": "Company OpenViking plugins for Codex and OpenCode.",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "install:local": "node scripts/install-local.mjs",
-    "smoke:docker": "node --import tsx scripts/smoke-openviking-plugin.ts",
-    "smoke:real": "node --import tsx scripts/smoke-openviking-plugin-real.ts"
+    "install:opencode:local": "node opencode/scripts/install-local.mjs",
+    "smoke:opencode:docker": "node --import tsx opencode/scripts/smoke-openviking-plugin.ts",
+    "smoke:opencode:real": "node --import tsx opencode/scripts/smoke-openviking-plugin-real.ts",
+    "check:codex": "node --check codex/scripts/session-state.mjs && node --check codex/scripts/config.mjs && node --check codex/scripts/auto-capture.mjs && node --check codex/scripts/auto-recall.mjs && node --check codex/scripts/pre-compact-capture.mjs && node --check codex/scripts/session-start-commit.mjs"
   },
   "devDependencies": {
     "@opencode-ai/plugin": "latest",
