@@ -2,26 +2,26 @@
 
 Codex-aligned OpenViking memory integration for OpenCode.
 
-See [README_CN.md](./README_CN.md) for the primary Chinese documentation.
+The primary documentation is maintained in Chinese: [README_CN.md](./README_CN.md).
 
-## What It Does
-
-- Auto-recalls relevant memories on `chat.message`, matching Codex `UserPromptSubmit`.
-- Captures completed user/assistant turns only on `session.idle`, matching Codex `Stop`.
-- Commits the OpenViking session before OpenCode compaction via `experimental.session.compacting`, matching Codex `PreCompact`.
-- Uses deterministic OpenViking session ids: `<user>-opencode-<opencode-session-id>`.
-
-It intentionally does not expose custom `openviking_*` or `mem*` tools. Manual read/write/search/delete/resource operations should come from the OpenViking MCP integration.
-
-## Install
+## Quick Install
 
 ```bash
-npm install
-npm run typecheck
-npm run install:local
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-opencode-plugins/main/scripts/install.sh)
 ```
 
-The install script copies `openviking-memory.ts` to `~/.config/opencode/plugins/`.
+For a private GitHub repository:
+
+```bash
+export GITHUB_TOKEN="$(gh auth token)"
+bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubusercontent.com/MoziaVerse/openviking-opencode-plugins/main/scripts/install.sh)
+```
+
+The installer copies `openviking-memory.ts` to:
+
+```text
+~/.config/opencode/plugins/openviking-memory.ts
+```
 
 ## Configuration
 
@@ -32,4 +32,13 @@ Resolution order:
 3. Optional `~/.config/opencode/plugins/openviking-config.json`
 4. Built-in default `http://127.0.0.1:1933`
 
-Do not commit real API keys.
+Use each employee's own USER API Key. Do not configure root/admin keys in daily OpenCode clients.
+
+## Behavior
+
+- `chat.message`: auto-recall, matching Codex `UserPromptSubmit`.
+- `session.idle`: completed turn capture, matching Codex `Stop`.
+- `experimental.session.compacting`: catch up and commit, matching Codex `PreCompact`.
+- OpenViking session id: `<user>-opencode-<opencode-session-id>`.
+
+The plugin intentionally does not expose custom `openviking_*` or `mem*` tools. Manual memory operations should come from the OpenViking MCP integration.

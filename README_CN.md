@@ -1,65 +1,98 @@
-# OpenViking OpenCode Memory Plugin
+# OpenViking OpenCode 记忆插件
 
-在 OpenCode 中对齐 Codex OpenViking memory plugin 的核心 hook 行为：自动召回、回合结束记录、压缩前提交。
+本插件为 [OpenCode](https://opencode.ai/) 提供对齐 Codex OpenViking memory plugin 的跨会话记忆能力。安装后，OpenCode 会在用户消息进入模型前自动召回相关记忆，在每轮对话结束后写入当前 session，并在上下文压缩前提交给 OpenViking 记忆抽取器。
 
-## 功能
-
-- `chat.message`：对标 Codex `UserPromptSubmit`，用户消息进入模型前检索 OpenViking，并注入 `<openviking-context>` 上下文。
-- `session.idle`：对标 Codex `Stop`，回合结束后从 OpenCode session 读取完整 user/assistant 文本，增量写入 OpenViking session。
-- `experimental.session.compacting`：对标 Codex `PreCompact`，压缩前补抓消息并提交 OpenViking session。
-- 确定性 session 命名：OpenCode session `abc` 对应 OpenViking session `<user>-opencode-abc`。
-
-本插件不再实现 `message.updated` / `message.part.updated` 写入，不提供 `openviking_*` 或 `mem*` 工具，不做定时 commit，也不注入 `shell.env`。手动读写请单独配置 OpenViking MCP。
+源码：[MoziaVerse/openviking-opencode-plugins](https://github.com/MoziaVerse/openviking-opencode-plugins)
 
 ## 安装
 
+公开仓库或可直接访问 GitHub raw 时：
+
 ```bash
-cd ~/Documents/Github/openviking-opencode-plugins
-npm install
-npm run typecheck
-npm run install:local
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-opencode-plugins/main/scripts/install.sh)
 ```
 
-插件会安装到：
+如果仓库是私有仓库，先准备有仓库读取权限的 GitHub token：
+
+```bash
+export GITHUB_TOKEN="$(gh auth token)"
+bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubusercontent.com/MoziaVerse/openviking-opencode-plugins/main/scripts/install.sh)
+```
+
+脚本会把插件安装到：
 
 ```text
 ~/.config/opencode/plugins/openviking-memory.ts
 ```
 
-## 配置优先级
+安装过程是幂等的。目标文件已存在且内容不同的时候，脚本会先生成 `.bak.<时间戳>` 备份再覆盖。
 
-从高到低：
+## 配置
+
+推荐使用当前用户自己的 OpenViking USER API Key，不要把 root/admin key 配到日常 OpenCode 客户端。
+
+插件读取配置的优先级如下：
 
 1. 环境变量：`OPENVIKING_URL`、`OPENVIKING_API_KEY`、`OPENVIKING_ACCOUNT`、`OPENVIKING_USER`
 2. OpenViking CLI 配置：`~/.openviking/ovcli.conf`
 3. 可选插件配置：`~/.config/opencode/plugins/openviking-config.json`
-4. 默认值：`http://127.0.0.1:1933`
+4. 默认地址：`http://127.0.0.1:1933`
 
-推荐把真实 key 放在 `~/.openviking/ovcli.conf` 或环境变量里，不要提交到 git。服务器地址和 API key 必须对应同一个 OpenViking 服务。安装脚本不会自动创建默认配置，避免默认 localhost 覆盖当前 ovcli 配置。
+服务器地址和 API key 必须对应同一套 OpenViking 服务，避免插件写入到错误服务器。
 
-## 配置示例
+`~/.openviking/ovcli.conf` 示例：
 
 ```json
 {
-  "endpoint": "http://localhost:1933",
-  "apiKey": "",
-  "account": "default",
-  "user": "opencode",
-  "timeoutMs": 15000,
-  "captureTimeoutMs": 30000,
-  "autoRecall": {
-    "enabled": true,
-    "limit": 6,
-    "scoreThreshold": 0.35
-  },
-  "captureAssistantTurns": true,
-  "captureMaxLength": 24000,
-  "autoCommitOnCompact": true,
-  "debug": false
+  "url": "http://your-openviking-server:1933",
+  "api_key": "your-user-api-key",
+  "account": "your-account",
+  "user": "your-user-id",
+  "agent_id": "default"
 }
 ```
 
-## 对齐 Codex 插件
+也可以在安装时用环境变量创建 `ovcli.conf`：
+
+```bash
+export GITHUB_TOKEN="$(gh auth token)"
+OPENVIKING_OPENCODE_WRITE_OVCLI=1 \
+OPENVIKING_URL="http://your-openviking-server:1933" \
+OPENVIKING_API_KEY="your-user-api-key" \
+OPENVIKING_ACCOUNT="your-account" \
+OPENVIKING_USER="your-user-id" \
+bash <(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" https://raw.githubusercontent.com/MoziaVerse/openviking-opencode-plugins/main/scripts/install.sh)
+```
+
+已有 `ovcli.conf` 时，写入模式会先备份旧文件。
+
+## 验证
+
+确认 OpenViking 服务可达：
+
+```bash
+curl "$(jq -r '.url' ~/.openviking/ovcli.conf)/health"
+```
+
+启动 OpenCode：
+
+```bash
+opencode
+```
+
+设置调试日志：
+
+```bash
+OPENVIKING_DEBUG=1 opencode
+```
+
+日志会写入：
+
+```text
+~/.openviking/logs/opencode-hooks.log
+```
+
+## 工作原理
 
 | Codex 插件能力 | OpenCode 实现 |
 | --- | --- |
@@ -68,18 +101,70 @@ npm run install:local
 | `PreCompact` 压缩前提交 | `experimental.session.compacting` |
 | MCP 手动读写 | 单独配置 OpenViking MCP |
 
-OpenCode 没有 Codex 完全同名的 `SessionStart(source=startup|clear|resume)`，所以这个插件不实现额外的 SessionStart 启发式回收，避免偏离 Codex 的核心 hook 行为。
-
-## 运行时文件
-
-插件运行后会写入：
+OpenViking session 命名规则：
 
 ```text
-~/.openviking/opencode-plugin-state/
+<user>-opencode-<opencode-session-id>
 ```
 
-设置 `OPENVIKING_DEBUG=1` 后，会写入调试日志：
+例如 OpenCode session `ses_xxx` 会写入：
 
 ```text
-~/.openviking/logs/opencode-hooks.log
+viking://user/<user>/sessions/<user>-opencode-ses_xxx
 ```
+
+本插件只保留对齐 Codex 的核心 hook 行为：
+
+- 不使用 `message.updated` / `message.part.updated` 高频写入
+- 不提供 `openviking_*` 或 `mem*` 工具
+- 不注入 `shell.env`
+- 不做定时 commit
+
+手动搜索、读写、删除、资源管理等能力请单独配置 OpenViking MCP。
+
+## 手动安装
+
+本地开发或不使用 curl 时：
+
+```bash
+git clone https://github.com/MoziaVerse/openviking-opencode-plugins.git
+cd openviking-opencode-plugins
+npm install
+npm run typecheck
+npm run install:local
+```
+
+卸载 curl 安装的插件：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-opencode-plugins/main/scripts/install.sh) --uninstall
+```
+
+私有仓库同样需要带 `GITHUB_TOKEN`。
+
+## 环境变量
+
+| 变量 | 说明 |
+| --- | --- |
+| `OPENVIKING_URL` / `OPENVIKING_BASE_URL` | OpenViking 服务地址 |
+| `OPENVIKING_API_KEY` / `OPENVIKING_BEARER_TOKEN` | 当前用户的 USER API Key |
+| `OPENVIKING_ACCOUNT` | OpenViking account |
+| `OPENVIKING_USER` | 当前用户 ID |
+| `OPENVIKING_CLI_CONFIG_FILE` | 指定 `ovcli.conf` 路径 |
+| `OPENVIKING_AUTO_RECALL` | 是否启用自动召回，默认启用 |
+| `OPENVIKING_RECALL_LIMIT` | 自动召回条数，默认 `6` |
+| `OPENVIKING_SCORE_THRESHOLD` | 召回分数阈值，默认 `0.35` |
+| `OPENVIKING_CAPTURE_ASSISTANT_TURNS` | 是否记录 assistant 回复，默认启用 |
+| `OPENVIKING_CAPTURE_MAX_LENGTH` | 单次捕获最大长度，默认 `24000` |
+| `OPENVIKING_AUTO_COMMIT_ON_COMPACT` | 压缩前是否提交，默认启用 |
+| `OPENVIKING_DEBUG` | 是否写调试日志 |
+
+## 故障排查
+
+| 现象 | 可能原因 | 处理方式 |
+| --- | --- | --- |
+| OpenViking 中没有 session | 插件未安装到 OpenCode 全局插件目录 | 检查 `~/.config/opencode/plugins/openviking-memory.ts` |
+| Hook 报 401 | API key 和服务器地址不匹配，或使用了错误用户 key | 检查 `~/.openviking/ovcli.conf` |
+| 写入到 localhost | 未配置真实服务器地址 | 设置 `OPENVIKING_URL` 或修改 `ovcli.conf` |
+| `curl` 安装报 404 | 私有仓库未带 token，或 token 无权限 | 使用 `GITHUB_TOKEN` / `GH_TOKEN` |
+| OpenCode 没有加载插件 | 使用了异常的 OpenCode 二进制或版本过旧 | 确认 `opencode --version` 能正常输出 |
