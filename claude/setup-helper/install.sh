@@ -91,7 +91,7 @@ esac
 missing=0
 for cmd in git jq curl; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    err "未找到 $cmd。请安装后重新运行。"
+    err "未找到 ${cmd}。请安装后重新运行。"
     missing=1
   fi
 done
@@ -177,7 +177,7 @@ if [ -z "$CURRENT_URL" ] || [ -z "$CURRENT_KEY" ]; then
       '{url: $url, api_key: $key}' > "$OVCLI_CONF"
   fi
   chmod 600 "$OVCLI_CONF"
-  info "已写入 $OVCLI_CONF（权限 0600）"
+  info "已写入 ${OVCLI_CONF}（权限 0600）"
 fi
 
 if [ -f "$OVCLI_CONF" ]; then
@@ -214,7 +214,7 @@ else
     err "$REPO_DIR 已存在，但不是 Git 工作区。请移走该目录，或设置 OPENVIKING_REPO_DIR。"
     exit 1
   fi
-  info "正在克隆 $REPO_URL（分支 $REPO_BRANCH，depth 1）"
+  info "正在克隆 ${REPO_URL}（分支 ${REPO_BRANCH}，depth 1）"
   mkdir -p "$(dirname "$REPO_DIR")"
   git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
 fi
@@ -420,7 +420,7 @@ install_legacy() {
   # script via `set -e` and skip our cleanup.
   if ! jq --slurpfile h "$tmp_h" '.hooks = ((.hooks // {}) * $h[0].hooks)' \
       "$settings" > "$tmp_s" 2>/dev/null; then
-    err "合并 hooks 到 $settings 失败；原文件未修改（临时文件：$tmp_s）"
+    err "合并 hooks 到 ${settings} 失败；原文件未修改（临时文件：${tmp_s}）"
     rm -f "$tmp_h"
     return 1
   fi
@@ -527,7 +527,7 @@ register_statusline() {
     return 1
   fi
   mv "$tmp" "$settings"
-  info "statusline 已注册（备份：$settings.bak.$ts）"
+  info "statusline 已注册（备份：${settings}.bak.${ts}）"
   info '稍后禁用：    jq "del(.statusLine)" '"$settings"' > t && mv t '"$settings"
   info '仅静默显示：  export OPENVIKING_STATUSLINE=off'
 }

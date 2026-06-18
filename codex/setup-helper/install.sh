@@ -190,7 +190,7 @@ if [ -t 0 ]; then
       fs.writeFileSync(file, JSON.stringify(c, null, 2) + "\n");
     ' "$OVCLI_CONF" "$CURRENT_URL" "$CURRENT_KEY"
     chmod 600 "$OVCLI_CONF"
-    info "已写入 $OVCLI_CONF（权限 0600）"
+    info "已写入 ${OVCLI_CONF}（权限 0600）"
   else
     info "复用已有配置。"
   fi
@@ -198,7 +198,7 @@ else
   if [ -n "$CURRENT_URL" ]; then
     info "非交互模式：使用已有配置 $OVCLI_CONF"
   else
-    warn "非交互模式且未找到 $OVCLI_CONF，将以匿名模式继续。"
+    warn "非交互模式且未找到 ${OVCLI_CONF}，将以匿名模式继续。"
     warn '请设置 OPENVIKING_URL / OPENVIKING_API_KEY，或在终端中重新运行安装脚本来配置认证。'
   fi
 fi
@@ -221,10 +221,10 @@ elif [ ! -e "$REPO_DIR/.git" ]; then
     err "$REPO_DIR 已存在，但不是 Git 工作区。"
     exit 1
   fi
-  info "正在克隆 $REPO_URL（分支 $REPO_REF，depth 1）"
+  info "正在克隆 ${REPO_URL}（分支 ${REPO_REF}，depth 1）"
   clone_repo
 else
-  info "正在刷新已有工作区（$REPO_REF）"
+  info "正在刷新已有工作区（${REPO_REF}）"
   refresh_repo
 fi
 
@@ -243,7 +243,7 @@ PLUGIN_VERSION="$(node -e 'const p=require(process.argv[1]); console.log(p.versi
 
 # ----- 4. Plugin install -----
 
-heading "4. 插件安装 ($PLUGIN_ID，版本 $PLUGIN_VERSION)"
+heading "4. 插件安装 (${PLUGIN_ID}，版本 ${PLUGIN_VERSION})"
 
 # Resolve the OpenViking /mcp endpoint at install time using the same
 # credential resolver that hooks and the shell wrapper use. By default the
@@ -576,7 +576,7 @@ else
         !skip
       ' "$RC" > "$RC.tmp" && mv "$RC.tmp" "$RC"
     else
-      warn "在 $RC 中找到了 $WRAPPER_MARKER_BEGIN，但缺少 $WRAPPER_MARKER_END。"
+      warn "在 ${RC} 中找到了 ${WRAPPER_MARKER_BEGIN}，但缺少 ${WRAPPER_MARKER_END}。"
       warn '为避免误改，跳过原地重写，并追加新的 OpenViking 加载片段。'
       warn '请稍后手动删除残留的开始标记。'
     fi
@@ -587,8 +587,8 @@ else
 fi
 
 if [ ! -f "$OVCLI_CONF" ] && [ "$HAS_API_KEY" != "1" ]; then
-  warn "未找到 $OVCLI_CONF，环境变量中也没有 OPENVIKING_API_KEY。"
-  warn "已按匿名模式安装，目标 MCP 地址：$MCP_URL。"
+  warn "未找到 ${OVCLI_CONF}，环境变量中也没有 OPENVIKING_API_KEY。"
+  warn "已按匿名模式安装，目标 MCP 地址：${MCP_URL}。"
   warn '如需稍后启用 Bearer 认证，请创建包含 api_key 的 ovcli.conf 后重新运行安装脚本。'
 fi
 
@@ -696,9 +696,9 @@ fi
 # ----- Done -----
 
 heading '安装完成'
-info "插件：      $PLUGIN_ID（版本 $PLUGIN_VERSION）"
+info "插件：      ${PLUGIN_ID}（版本 ${PLUGIN_VERSION}）"
 info "配置文件：  $OVCLI_CONF"
-info "MCP：       $MCP_URL（$([ "$HAS_API_KEY" = "1" ] && echo "Bearer 认证" || echo "匿名模式")）"
+info "MCP：       ${MCP_URL}（$([ "$HAS_API_KEY" = "1" ] && echo "Bearer 认证" || echo "匿名模式")）"
 [ -n "$RC" ] && info "Shell 配置：  $RC"
 printf '\n'
 if [ -n "$RC" ]; then
