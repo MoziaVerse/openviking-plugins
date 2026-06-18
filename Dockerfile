@@ -15,7 +15,13 @@ RUN timeout 180s npm install -g opencode-ai@latest \
   --no-fund
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN timeout 180s npm ci \
+  --registry=https://registry.npmjs.org/ \
+  --fetch-timeout=15000 \
+  --fetch-retries=1 \
+  --no-audit \
+  --no-fund \
+  --ignore-scripts
 
 COPY . .
 

@@ -7,7 +7,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "install:local": "node scripts/install-local.mjs",
-    "smoke:docker": "node --import tsx scripts/smoke-openviking-plugin.ts"
+    "smoke:docker": "node --import tsx scripts/smoke-openviking-plugin.ts",
+    "smoke:real": "node --import tsx scripts/smoke-openviking-plugin-real.ts"
   },
   "devDependencies": {
     "@opencode-ai/plugin": "latest",
