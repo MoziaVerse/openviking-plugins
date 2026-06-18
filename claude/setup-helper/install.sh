@@ -59,16 +59,16 @@ heading() { printf '\n%s%s%s\n' "$BOLD" "$*" "$RESET"; }
 # .git.
 fetch_archive() {
   local url="$1" dest="$2" tmp_zip tmp_dir top
-  command -v unzip >/dev/null 2>&1 || { err 'unzip not found; required to install from an archive.'; exit 1; }
-  tmp_zip=$(mktemp "${TMPDIR:-/tmp}/ov-src.XXXXXX") || { err 'mktemp failed'; exit 1; }
-  tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/ov-src.XXXXXX") || { err 'mktemp failed'; rm -f "$tmp_zip"; exit 1; }
-  info "Downloading source archive"
+  command -v unzip >/dev/null 2>&1 || { err '未找到 unzip；从归档安装时需要该命令。'; exit 1; }
+  tmp_zip=$(mktemp "${TMPDIR:-/tmp}/ov-src.XXXXXX") || { err 'mktemp 执行失败'; exit 1; }
+  tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/ov-src.XXXXXX") || { err 'mktemp 执行失败'; rm -f "$tmp_zip"; exit 1; }
+  info "正在下载源码归档"
   info "  $url"
-  curl -fsSL -o "$tmp_zip" "$url" || { err "download failed: $url"; rm -rf "$tmp_zip" "$tmp_dir"; exit 1; }
-  unzip -q "$tmp_zip" -d "$tmp_dir" || { err 'unzip failed (corrupt download?)'; rm -rf "$tmp_zip" "$tmp_dir"; exit 1; }
+  curl -fsSL -o "$tmp_zip" "$url" || { err "下载失败：$url"; rm -rf "$tmp_zip" "$tmp_dir"; exit 1; }
+  unzip -q "$tmp_zip" -d "$tmp_dir" || { err '解压失败，下载内容可能已损坏。'; rm -rf "$tmp_zip" "$tmp_dir"; exit 1; }
   top=$(find "$tmp_dir" -mindepth 1 -maxdepth 1 -type d | head -n 1)
   if [ -z "$top" ] || [ ! -d "$top/claude" ]; then
-    err 'unexpected archive layout (no top-level dir containing claude/)'
+    err '源码归档结构异常：顶层目录中没有 claude/'
     rm -rf "$tmp_zip" "$tmp_dir"; exit 1
   fi
   rm -rf "$dest"
@@ -76,22 +76,22 @@ fetch_archive() {
   mv "$top" "$dest"
   : > "$dest/$ARCHIVE_MARKER"
   rm -rf "$tmp_zip" "$tmp_dir"
-  info "Source ready at $dest"
+  info "源码已准备好：$dest"
 }
 
 # ----- 1. Environment check -----
 
-heading '1. Environment check'
+heading '1. 环境检查'
 
 case "$(uname -s)" in
   Darwin|Linux) info "OS: $(uname -s)" ;;
-  *) err "Unsupported OS: $(uname -s). Only macOS and Linux are supported."; exit 1 ;;
+  *) err "不支持的操作系统：$(uname -s)。仅支持 macOS 和 Linux。"; exit 1 ;;
 esac
 
 missing=0
 for cmd in git jq curl; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    err "$cmd not found. Please install it and re-run."
+    err "未找到 $cmd。请安装后重新运行。"
     missing=1
   fi
 done
@@ -99,16 +99,16 @@ done
 
 if command -v claude >/dev/null 2>&1; then
   CLAUDE_AVAILABLE=1
-  info "claude CLI: $(claude --version 2>/dev/null || echo unknown)"
+  info "claude CLI：$(claude --version 2>/dev/null || echo 未知)"
 else
   CLAUDE_AVAILABLE=0
-  warn "claude CLI not found on PATH. Plugin install will be skipped at the end."
-  warn "Install Claude Code first: https://docs.claude.com/en/docs/claude-code/setup"
+  warn "PATH 中未找到 claude CLI。最后会跳过插件安装步骤。"
+  warn "请先安装 Claude Code：https://docs.claude.com/en/docs/claude-code/setup"
 fi
 
 # ----- 2. ovcli.conf -----
 
-heading "2. OpenViking client config ($OVCLI_CONF)"
+heading "2. OpenViking 客户端配置 ($OVCLI_CONF)"
 
 mkdir -p "$OV_HOME"
 chmod 700 "$OV_HOME" 2>/dev/null || true
@@ -120,10 +120,10 @@ if [ -f "$OVCLI_CONF" ]; then
   CURRENT_KEY=$(jq -r '.api_key // ""' "$OVCLI_CONF" 2>/dev/null || true)
   if [ -n "$CURRENT_URL" ] && [ -n "$CURRENT_KEY" ]; then
     key_preview=$(printf '%s' "$CURRENT_KEY" | cut -c1-8)
-    info "Existing config found:"
+    info "发现已有配置："
     info "  url     = $CURRENT_URL"
     info "  api_key = ${key_preview}…"
-    ask 'Reuse these values? [Y/n] '
+    ask '复用这些配置？[Y/n] '
     read -r reply || reply=""
     case "$reply" in
       n|N|no|No|NO) CURRENT_URL=""; CURRENT_KEY="" ;;
@@ -132,23 +132,23 @@ if [ -f "$OVCLI_CONF" ]; then
 fi
 
 if [ -z "$CURRENT_URL" ] || [ -z "$CURRENT_KEY" ]; then
-  printf '%sChoose where you'\''ll connect to OpenViking:%s\n' "$BOLD" "$RESET"
-  printf '  1) Self-hosted / local                          [default: http://127.0.0.1:1933]\n'
-  printf '  2) Volcengine OpenViking Cloud                  [https://api.vikingdb.cn-beijing.volces.com/openviking]\n'
-  ask '[1/2, default 1]: '
+  printf '%s请选择要连接的 OpenViking 服务：%s\n' "$BOLD" "$RESET"
+  printf '  1) 自建 / 本地服务                              [默认：http://127.0.0.1:1933]\n'
+  printf '  2) 火山引擎 OpenViking Cloud                    [https://api.vikingdb.cn-beijing.volces.com/openviking]\n'
+  ask '[1/2，默认 1]：'
   read -r MODE_INPUT || MODE_INPUT=""
   case "$MODE_INPUT" in
     2)
       CURRENT_URL="https://api.vikingdb.cn-beijing.volces.com/openviking"
-      info "Using Volcengine OpenViking Cloud: $CURRENT_URL"
-      KEY_PROMPT="API key (required for Volcengine OpenViking Cloud): "
+      info "使用火山引擎 OpenViking Cloud：$CURRENT_URL"
+      KEY_PROMPT="API Key（火山引擎 OpenViking Cloud 必填）："
       ;;
     *)
       DEFAULT_URL="http://127.0.0.1:1933"
-      ask "OpenViking server URL [$DEFAULT_URL]: "
+      ask "OpenViking 服务地址 [$DEFAULT_URL]："
       read -r URL_INPUT || URL_INPUT=""
       CURRENT_URL="${URL_INPUT:-$DEFAULT_URL}"
-      KEY_PROMPT="API key (leave empty for unauthenticated local mode): "
+      KEY_PROMPT="API Key（本地匿名模式可留空）："
       ;;
   esac
 
@@ -164,35 +164,35 @@ if [ -z "$CURRENT_URL" ] || [ -z "$CURRENT_KEY" ]; then
   if [ -f "$OVCLI_CONF" ]; then
     backup="$OVCLI_CONF.bak.$(date +%s)"
     cp "$OVCLI_CONF" "$backup"
-    info "Backed up existing config → $backup"
+    info "已备份原配置 → $backup"
   fi
   jq -n --arg url "$CURRENT_URL" --arg key "$CURRENT_KEY" \
     '{url: $url, api_key: $key}' > "$OVCLI_CONF"
   chmod 600 "$OVCLI_CONF"
-  info "Wrote $OVCLI_CONF (mode 0600)"
+  info "已写入 $OVCLI_CONF（权限 0600）"
 fi
 
 # ----- 3. Clone / refresh repo -----
 
-heading "3. OpenViking source repository ($REPO_DIR)"
+heading "3. OpenViking 插件源码仓库 ($REPO_DIR)"
 
 if [ -n "$REPO_ARCHIVE_URL" ]; then
   # Archive mode (GitHub-free): refuse to overwrite anything we didn't create.
   if [ -e "$REPO_DIR" ] && [ ! -f "$REPO_DIR/$ARCHIVE_MARKER" ]; then
-    err "$REPO_DIR exists and was not created from an archive. Move it aside or set OPENVIKING_REPO_DIR."
+    err "$REPO_DIR 已存在，且不是由归档安装创建。请移走该目录，或设置 OPENVIKING_REPO_DIR。"
     exit 1
   fi
   fetch_archive "$REPO_ARCHIVE_URL" "$REPO_DIR"
 elif [ -d "$REPO_DIR/.git" ]; then
-  info "Updating existing checkout"
+  info "正在更新已有工作区"
   git -C "$REPO_DIR" fetch --depth 1 origin "$REPO_BRANCH"
   git -C "$REPO_DIR" reset --hard "FETCH_HEAD"
 else
   if [ -e "$REPO_DIR" ]; then
-    err "$REPO_DIR exists but is not a git checkout. Move it aside or set OPENVIKING_REPO_DIR."
+    err "$REPO_DIR 已存在，但不是 Git 工作区。请移走该目录，或设置 OPENVIKING_REPO_DIR。"
     exit 1
   fi
-  info "Cloning $REPO_URL (branch $REPO_BRANCH, depth 1)"
+  info "正在克隆 $REPO_URL（分支 $REPO_BRANCH，depth 1）"
   mkdir -p "$(dirname "$REPO_DIR")"
   git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$REPO_DIR"
 fi
@@ -205,12 +205,12 @@ fi
 # already runs above. Same pattern pyenv / nvm / fnm use, except we don't
 # even need an intermediate copy in $HOME.
 
-heading '4. Shell rc — claude function wrapper'
+heading '4. Shell 配置 — claude 函数包装'
 
 PLUGIN_DIR="$REPO_DIR/claude"
 WRAPPER_SRC="$PLUGIN_DIR/setup-helper/wrapper.sh"
 if [ ! -f "$WRAPPER_SRC" ]; then
-  err "Wrapper source not found at $WRAPPER_SRC"
+  err "未找到 wrapper 源文件：$WRAPPER_SRC"
   exit 1
 fi
 
@@ -228,22 +228,20 @@ esac
 # `cc-custom`, or a multi-word launcher matched on its sub-command.
 # Persisted in the rc marker block as OPENVIKING_CC_WRAP_EXTRA; the wrapper
 # reads it and injects credentials into matching invocations only.
-heading '4b. Extra launch commands (optional)'
+heading '4b. 额外启动命令（可选）'
 # Seed from this run's env var (automation path), else the value already in
 # the rc (re-run path). The interactive prompt below can still override it.
 WRAP_EXTRA="${OPENVIKING_CC_WRAP_EXTRA:-}"
 if [ -z "$WRAP_EXTRA" ] && [ -n "$RC" ] && [ -f "$RC" ]; then
   WRAP_EXTRA=$(awk -F"'" '/^OPENVIKING_CC_WRAP_EXTRA=/{print $2; exit}' "$RC" 2>/dev/null || true)
 fi
-info 'Inject OpenViking creds into other launch commands too? e.g. a custom'
-info 'wrapper `cc-custom`. A multi-word launcher (a base command plus a'
-info 'sub-command) is matched on that sub-command; other uses of the command'
-info 'pass through untouched.'
+info '是否也为其他启动命令注入 OpenViking 凭据？例如自定义 wrapper `cc-custom`。'
+info '多词启动器会按子命令匹配；该命令的其他用法会原样放行。'
 if [ -n "$WRAP_EXTRA" ]; then
-  info "Currently: $WRAP_EXTRA"
-  ask 'Commands (;-separated; empty = keep, "-" = clear): '
+  info "当前配置：$WRAP_EXTRA"
+  ask '命令列表（用 ; 分隔；留空=保留，- =清空）：'
 else
-  ask 'Commands (;-separated, e.g. "cc-custom"; empty to skip): '
+  ask '命令列表（用 ; 分隔，例如 "cc-custom"；留空=跳过）：'
 fi
 read -r WRAP_INPUT || WRAP_INPUT=""
 case "$WRAP_INPUT" in
@@ -262,7 +260,7 @@ if [ -n "$WRAP_EXTRA" ]; then
     }
     print out;
   }')
-  [ -n "$WRAP_EXTRA" ] && info "Will wrap: $WRAP_EXTRA"
+  [ -n "$WRAP_EXTRA" ] && info "将包装这些命令：$WRAP_EXTRA"
 fi
 
 # The user's shell rc gets a single one-line source hook pointing at the
@@ -283,13 +281,13 @@ $MARKER_END"
 fi
 
 if [ -z "$RC" ]; then
-  warn 'Could not detect shell rc. Add this snippet to your rc manually:'
+  warn '未检测到 shell rc 文件。请手动把下面片段加入你的 rc 文件：'
   warn ''
   while IFS= read -r line; do warn "  $line"; done <<< "$SOURCE_BLOCK"
 else
   touch "$RC"
   if grep -qF "$MARKER_BEGIN" "$RC"; then
-    info "Replacing openviking source hook in $RC"
+    info "正在替换 $RC 中的 OpenViking 加载片段"
     # Strip existing block (whether it's the new one-liner or an old
     # inline-wrapper block from a previous version).
     awk -v b="$MARKER_BEGIN" -v e="$MARKER_END" '
@@ -298,7 +296,7 @@ else
       !skip
     ' "$RC" > "$RC.tmp" && mv "$RC.tmp" "$RC"
   else
-    info "Appending openviking source hook to $RC"
+    info "正在向 $RC 追加 OpenViking 加载片段"
   fi
   printf '\n%s\n' "$SOURCE_BLOCK" >> "$RC"
 fi
@@ -317,7 +315,7 @@ fi
 #     user scope, and the `--scope` flag is rejected by older 2.0.x builds (e.g.
 #     2.0.76). We omit it.
 
-heading '5. Plugin install'
+heading '5. 插件安装'
 
 # Probe for `claude plugin` support directly rather than parsing --version output.
 # The version-string format isn't a stable contract; the subcommand's existence is.
@@ -331,18 +329,18 @@ install_legacy() {
   local settings="$HOME/.claude/settings.json"
   local ts; ts=$(date +%Y%m%d-%H%M%S)
 
-  info "Legacy mode: registering MCP server + merging hooks into $settings"
+  info "兼容模式：注册 MCP 服务，并把 hooks 合并到 $settings"
 
   # 1) MCP server. Single-quoted ${VAR} literals so Claude Code expands them at
   # MCP launch time using whatever the rc wrapper has injected.
-  info 'claude mcp add openviking (user scope)'
+  info 'claude mcp add openviking（用户作用域）'
   claude mcp remove openviking -s user >/dev/null 2>&1 || true
   claude mcp add --scope user --transport http openviking \
     '${OPENVIKING_URL:-http://127.0.0.1:1933}/mcp' \
     --header 'Authorization: Bearer ${OPENVIKING_API_KEY:-}' \
     --header 'X-OpenViking-Account: ${OPENVIKING_ACCOUNT:-}' \
     --header 'X-OpenViking-User: ${OPENVIKING_USER:-}' || {
-      err 'claude mcp add failed'
+      err 'claude mcp add 执行失败'
       return 1
     }
 
@@ -350,19 +348,19 @@ install_legacy() {
   # with an absolute path, then merge into ~/.claude/settings.json. Back up
   # first; verify the merged JSON before overwriting.
   if [ ! -f "$hooks_src" ]; then
-    err "hooks source not found: $hooks_src"
+    err "未找到 hooks 源文件：$hooks_src"
     return 1
   fi
   mkdir -p "$HOME/.claude"
   [ -f "$settings" ] || echo '{}' > "$settings"
   cp -p "$settings" "$settings.bak.$ts"
-  info "Backup: $settings.bak.$ts"
+  info "已备份：$settings.bak.$ts"
 
   # mktemp instead of `$$` — predictable PID-based names are vulnerable to
   # symlink races on shared /tmp.
   local tmp_h tmp_s
-  tmp_h=$(mktemp "${TMPDIR:-/tmp}/ov-hooks.XXXXXX") || { err 'mktemp failed'; return 1; }
-  tmp_s=$(mktemp "${TMPDIR:-/tmp}/ov-settings.XXXXXX") || { err 'mktemp failed'; rm -f "$tmp_h"; return 1; }
+  tmp_h=$(mktemp "${TMPDIR:-/tmp}/ov-hooks.XXXXXX") || { err 'mktemp 执行失败'; return 1; }
+  tmp_s=$(mktemp "${TMPDIR:-/tmp}/ov-settings.XXXXXX") || { err 'mktemp 执行失败'; rm -f "$tmp_h"; return 1; }
 
   # Replace ${CLAUDE_PLUGIN_ROOT} via jq, not sed — $plugin_dir comes from a
   # user-configurable env var and may contain &, |, or \ which would corrupt
@@ -370,7 +368,7 @@ install_legacy() {
   if ! jq --arg root "$plugin_dir" \
       'walk(if type == "string" then gsub("\\$\\{CLAUDE_PLUGIN_ROOT\\}"; $root) else . end)' \
       "$hooks_src" > "$tmp_h" 2>/dev/null; then
-    err "expanding CLAUDE_PLUGIN_ROOT in $hooks_src failed"
+    err "展开 $hooks_src 中的 CLAUDE_PLUGIN_ROOT 失败"
     rm -f "$tmp_h" "$tmp_s"
     return 1
   fi
@@ -380,13 +378,13 @@ install_legacy() {
   # script via `set -e` and skip our cleanup.
   if ! jq --slurpfile h "$tmp_h" '.hooks = ((.hooks // {}) * $h[0].hooks)' \
       "$settings" > "$tmp_s" 2>/dev/null; then
-    err "merging hooks into $settings failed; original untouched (intermediate: $tmp_s)"
+    err "合并 hooks 到 $settings 失败；原文件未修改（临时文件：$tmp_s）"
     rm -f "$tmp_h"
     return 1
   fi
   mv "$tmp_s" "$settings"
   rm -f "$tmp_h"
-  info 'hooks merged'
+  info 'hooks 已合并'
 }
 
 install_modern() {
@@ -400,26 +398,26 @@ install_modern() {
   # in the checkout is never picked up on re-run. Re-running the installer is the
   # supported upgrade path, so the already-present branch must re-sync the catalog.
   if claude plugin marketplace list 2>/dev/null | grep -qF "$mp"; then
-    info "claude plugin marketplace update ($mp)"
+    info "正在更新 Claude 插件市场 ($mp)"
     claude plugin marketplace update "$mp" || \
-      warn 'marketplace update returned non-zero — continuing'
+      warn '插件市场更新返回非零状态，继续执行'
   else
-    info 'claude plugin marketplace add'
+    info '正在添加 Claude 插件市场'
     ( cd "$REPO_DIR" && claude plugin marketplace add "$REPO_DIR" ) || \
-      warn 'marketplace add returned non-zero — continuing'
+      warn '插件市场添加返回非零状态，继续执行'
   fi
 
   # Plugin: update when already installed, else install. `plugin install` is a
   # no-op on an existing install (it will NOT pull a newer version), so an
   # explicit `plugin update` is required for the re-run-to-upgrade path.
   if claude plugin list 2>/dev/null | grep -qF "$plugin"; then
-    info "claude plugin update ($plugin)"
+    info "正在更新 Claude 插件 ($plugin)"
     ( cd "$REPO_DIR" && claude plugin update "$plugin" ) || \
-      warn 'plugin update returned non-zero — continuing'
+      warn '插件更新返回非零状态，继续执行'
   else
-    info 'claude plugin install'
+    info '正在安装 Claude 插件'
     ( cd "$REPO_DIR" && claude plugin install "$plugin" ) || {
-      warn 'plugin install failed — falling back to legacy mode'
+      warn '插件安装失败，回退到兼容模式'
       install_legacy
       return $?
     }
@@ -440,9 +438,9 @@ register_statusline() {
   local cmd="node \"$plugin_dir/scripts/statusline.mjs\""
   local settings="$HOME/.claude/settings.json"
 
-  heading 'Statusline (optional)'
-  info 'OpenViking can show a one-line server/recall status under the input box.'
-  info 'Sample: "OV ✓ │ ↩ 6 mem (0.92) · 50ms │ ✎ 573/20k · 2 arch │ +3 today"'
+  heading 'Statusline（可选）'
+  info 'OpenViking 可以在输入框下方显示一行服务器/召回状态。'
+  info '示例："OV ✓ │ ↩ 6 mem (0.92) · 50ms │ ✎ 573/20k · 2 arch │ +3 today"'
 
   mkdir -p "$HOME/.claude"
   [ -f "$settings" ] || echo '{}' > "$settings"
@@ -451,23 +449,23 @@ register_statusline() {
   existing=$(jq -r '.statusLine.command // empty' "$settings" 2>/dev/null || echo "")
 
   if [ -n "$existing" ] && [ "$existing" = "$cmd" ]; then
-    info 'Already registered. (Re-run this installer with no changes to refresh.)'
+    info '已注册。重新运行安装脚本即可刷新配置。'
     return 0
   fi
 
   if [ -n "$existing" ]; then
-    warn "Existing statusline detected:"
+    warn "检测到已有 statusline："
     warn "  $existing"
-    ask 'Replace it with OpenViking statusline? [y/N] '
+    ask '是否替换为 OpenViking statusline？[y/N] '
   else
-    ask 'Enable OpenViking statusline? [y/N] '
+    ask '是否启用 OpenViking statusline？[y/N] '
   fi
   local reply
   read -r reply || reply=""
   case "$reply" in
     y|Y|yes|Yes|YES) ;;
     *)
-      info 'Skipped statusline registration. Run this installer again to enable it later.'
+      info '已跳过 statusline 注册。之后可重新运行安装脚本启用。'
       return 0
       ;;
   esac
@@ -478,28 +476,28 @@ register_statusline() {
   # rename within one filesystem (atomic). Using $TMPDIR risks crossing
   # filesystems on Linux (tmpfs vs $HOME), which makes `mv` non-atomic.
   local tmp
-  tmp=$(mktemp "$settings.XXXXXX") || { err 'mktemp failed'; return 1; }
+  tmp=$(mktemp "$settings.XXXXXX") || { err 'mktemp 执行失败'; return 1; }
   if ! jq --arg cmd "$cmd" \
        '.statusLine = {type: "command", command: $cmd, padding: 0}' \
        "$settings" > "$tmp" 2>/dev/null; then
-    err "writing statusline into $settings failed; original untouched"
+    err "写入 statusline 到 $settings 失败；原文件未修改"
     rm -f "$tmp"
     return 1
   fi
   mv "$tmp" "$settings"
-  info "statusline registered (backup: $settings.bak.$ts)"
-  info 'Disable later:    jq "del(.statusLine)" '"$settings"' > t && mv t '"$settings"
-  info 'Or silence only:  export OPENVIKING_STATUSLINE=off'
+  info "statusline 已注册（备份：$settings.bak.$ts）"
+  info '稍后禁用：    jq "del(.statusLine)" '"$settings"' > t && mv t '"$settings"
+  info '仅静默显示：  export OPENVIKING_STATUSLINE=off'
 }
 
 USE_LEGACY=0
 if [ "$CLAUDE_AVAILABLE" -eq 1 ] && ! has_plugin_subcommand; then
-  warn "This Claude Code build doesn't expose 'claude plugin' (introduced in 2.0)."
-  ask 'Use legacy compatibility mode (claude mcp add + settings.json merge)? [Y/n] '
+  warn "当前 Claude Code 版本没有 'claude plugin' 子命令（2.0 引入）。"
+  ask '是否使用兼容模式（claude mcp add + 合并 settings.json）？[Y/n] '
   read -r reply || reply=""
   case "$reply" in
     n|N|no|No|NO)
-      warn "Skipping plugin install. Upgrade to Claude Code >= 2.0 and re-run."
+      warn "跳过插件安装。请升级到 Claude Code >= 2.0 后重新运行。"
       CLAUDE_AVAILABLE=0
       ;;
     *) USE_LEGACY=1 ;;
@@ -512,9 +510,9 @@ if [ "$CLAUDE_AVAILABLE" -eq 1 ]; then
   else
     install_modern
   fi
-  register_statusline || warn 'statusline registration skipped (continuing)'
+  register_statusline || warn 'statusline 注册已跳过，继续执行'
 else
-  warn "Run these manually after installing Claude Code:"
+  warn "安装 Claude Code 后，请手动执行："
   warn "  cd \"$REPO_DIR\""
   warn '  claude plugin marketplace add "$(pwd)"'
   warn '  claude plugin install claude-code-memory-plugin@openviking-plugins-local'
@@ -528,19 +526,19 @@ fi
 # bold callout below. (`source <(curl ...)` would work but is unsafe to
 # recommend — it pipes remote code straight into the user's interactive shell.)
 
-heading 'Done!'
-info "Source:    $REPO_DIR"
-info "Config:    $OVCLI_CONF"
-[ -n "$RC" ] && info "Shell rc:  $RC"
+heading '安装完成'
+info "源码目录：  $REPO_DIR"
+info "配置文件：  $OVCLI_CONF"
+[ -n "$RC" ] && info "Shell 配置：  $RC"
 printf '\n'
 if [ -n "$RC" ]; then
-  printf '%s%sNext — run this in your shell to pick up the wrapper:%s\n' "$BOLD" "$YELLOW" "$RESET"
+  printf '%s%s下一步：在当前 shell 中执行下面命令，让 wrapper 生效：%s\n' "$BOLD" "$YELLOW" "$RESET"
   printf '    %s%ssource %s%s\n' "$BOLD" "$CYAN" "$RC" "$RESET"
-  printf '  (or just open a new terminal window)\n\n'
+  printf '  （也可以直接打开一个新的终端窗口）\n\n'
 fi
-info 'Then:'
-info '  claude              # start Claude Code'
-info '  /mcp                # inside Claude Code, verify the OpenViking entry'
+info '然后：'
+info '  claude              # 启动 Claude Code'
+info '  /mcp                # 在 Claude Code 中检查 OpenViking 条目'
 printf '\n'
-printf '%sCurious what your statusline shows, or want to tweak it?%s Open Claude Code and paste:\n' "$BOLD" "$RESET"
-printf '  %sRead %s/claude/STATUSLINE.md. Walk me through what each segment of my OpenViking statusline means, then ask me whether I want to personalize anything.%s\n' "$CYAN" "$REPO_DIR" "$RESET"
+printf '%s想了解 statusline 每段含义，或想调整显示？%s 打开 Claude Code 后粘贴：\n' "$BOLD" "$RESET"
+printf '  %s读取 %s/claude/STATUSLINE.md。说明我的 OpenViking statusline 每段含义，然后询问我是否要个性化调整。%s\n' "$CYAN" "$REPO_DIR" "$RESET"

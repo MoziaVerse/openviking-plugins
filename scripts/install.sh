@@ -10,28 +10,28 @@ TARGET="${1:-}"
 
 usage() {
   cat <<EOF
-OpenViking plugins installer
+OpenViking 插件安装器
 
-Usage:
+用法：
   bash <(curl -fsSL https://raw.githubusercontent.com/${REPO_DEFAULT}/main/scripts/install.sh) claude
   bash <(curl -fsSL https://raw.githubusercontent.com/${REPO_DEFAULT}/main/scripts/install.sh) codex
   bash <(curl -fsSL https://raw.githubusercontent.com/${REPO_DEFAULT}/main/scripts/install.sh) opencode
   bash <(curl -fsSL https://raw.githubusercontent.com/${REPO_DEFAULT}/main/scripts/install.sh) all
 
-Targets:
-  claude     Install the Claude Code memory plugin.
-  codex      Install the Codex memory plugin.
-  opencode   Install the OpenCode memory plugin.
-  all        Install all plugins.
+目标：
+  claude     安装 Claude Code 记忆插件。
+  codex      安装 Codex 记忆插件。
+  opencode   安装 OpenCode 记忆插件。
+  all        安装全部插件。
 
-Environment:
-  OPENVIKING_PLUGINS_REPO                  GitHub repo, default: ${REPO_DEFAULT}
-  OPENVIKING_PLUGINS_REF                   Git ref, default: main
-  OPENVIKING_PLUGINS_CLAUDE_INSTALL_URL    Direct Claude Code installer URL
-  OPENVIKING_PLUGINS_CODEX_INSTALL_URL     Direct Codex installer URL
-  OPENVIKING_PLUGINS_OPENCODE_INSTALL_URL  Direct OpenCode installer URL
+环境变量：
+  OPENVIKING_PLUGINS_REPO                  GitHub 仓库，默认：${REPO_DEFAULT}
+  OPENVIKING_PLUGINS_REF                   Git 引用，默认：main
+  OPENVIKING_PLUGINS_CLAUDE_INSTALL_URL    Claude Code 安装脚本直连 URL
+  OPENVIKING_PLUGINS_CODEX_INSTALL_URL     Codex 安装脚本直连 URL
+  OPENVIKING_PLUGINS_OPENCODE_INSTALL_URL  OpenCode 安装脚本直连 URL
 
-Extra arguments after the target are passed to the target installer.
+目标后面的额外参数会继续传给对应插件的安装脚本。
 EOF
 }
 
@@ -47,7 +47,7 @@ info() {
 }
 
 die() {
-  printf '[openviking-plugins] ERROR: %s\n' "$*" >&2
+  printf '[openviking-plugins] 错误：%s\n' "$*" >&2
   exit 1
 }
 
@@ -78,7 +78,7 @@ run_installer() {
 
   tmp="$(mktemp)"
   trap 'rm -f "'"$tmp"'"' RETURN
-  info "Installing $name"
+  info "正在安装 $name"
   info "  $url"
   download_installer "$url" "$tmp"
   bash "$tmp" "$@"
@@ -106,6 +106,6 @@ case "$TARGET" in
     run_installer opencode "$OPENCODE_URL" "$@"
     ;;
   *)
-    die "unknown target: $TARGET"
+    die "未知安装目标：$TARGET"
     ;;
 esac

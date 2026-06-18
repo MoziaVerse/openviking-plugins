@@ -17,23 +17,23 @@ UNINSTALL=0
 
 usage() {
   cat <<EOF
-OpenViking OpenCode plugin installer
+OpenViking OpenCode 插件安装器
 
-Usage:
+用法：
   bash <(curl -fsSL https://raw.githubusercontent.com/${REPO_DEFAULT}/main/opencode/setup-helper/install.sh)
 
-Options:
-  --dry-run      Print planned actions only.
-  --uninstall    Remove the installed plugin file.
-  -h, --help     Show this help.
+选项：
+  --dry-run      只打印计划执行的操作，不实际修改。
+  --uninstall    删除已安装的插件文件。
+  -h, --help     显示帮助。
 
-Environment:
-  OPENVIKING_OPENCODE_REPO          GitHub repo, default: ${REPO_DEFAULT}
-  OPENVIKING_OPENCODE_REF           Git ref, default: main
-  OPENVIKING_OPENCODE_PLUGIN_URL    Direct plugin download URL
-  OPENVIKING_OPENCODE_PLUGIN_DIR    Install dir, default: ~/.config/opencode/plugins
+环境变量：
+  OPENVIKING_OPENCODE_REPO          GitHub 仓库，默认：${REPO_DEFAULT}
+  OPENVIKING_OPENCODE_REF           Git 引用，默认：main
+  OPENVIKING_OPENCODE_PLUGIN_URL    插件文件直连下载 URL
+  OPENVIKING_OPENCODE_PLUGIN_DIR    安装目录，默认：~/.config/opencode/plugins
 
-Optional ovcli bootstrap:
+可选 ovcli 配置初始化：
   OPENVIKING_OPENCODE_WRITE_OVCLI=1
   OPENVIKING_URL / OPENVIKING_BASE_URL
   OPENVIKING_API_KEY / OPENVIKING_BEARER_TOKEN
@@ -55,7 +55,7 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Unknown option: $1" >&2
+      echo "未知选项：$1" >&2
       usage >&2
       exit 2
       ;;
@@ -68,16 +68,16 @@ info() {
 }
 
 warn() {
-  printf '[openviking-opencode] WARN: %s\n' "$*" >&2
+  printf '[openviking-opencode] 警告：%s\n' "$*" >&2
 }
 
 die() {
-  printf '[openviking-opencode] ERROR: %s\n' "$*" >&2
+  printf '[openviking-opencode] 错误：%s\n' "$*" >&2
   exit 1
 }
 
 need_command() {
-  command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+  command -v "$1" >/dev/null 2>&1 || die "缺少必需命令：$1"
 }
 
 maybe_check_opencode() {
@@ -100,12 +100,12 @@ maybe_check_opencode() {
     esac
     seen="${seen}${candidate}:"
     if "$candidate" --version >/dev/null 2>&1; then
-      info "OpenCode detected: $candidate"
+      info "已检测到 OpenCode：$candidate"
       return 0
     fi
   done
 
-  warn "opencode was not found or failed to run; install/fix OpenCode before using the plugin"
+  warn "未找到 opencode，或 opencode 无法运行；使用插件前请先安装或修复 OpenCode"
 }
 
 download_file() {
@@ -123,12 +123,12 @@ write_ovcli_config() {
   local api_key="${OPENVIKING_API_KEY:-${OPENVIKING_BEARER_TOKEN:-}}"
 
   [[ "${OPENVIKING_OPENCODE_WRITE_OVCLI:-0}" == "1" ]] || return 0
-  [[ -n "$url" ]] || die "OPENVIKING_OPENCODE_WRITE_OVCLI=1 requires OPENVIKING_URL or OPENVIKING_BASE_URL"
-  [[ -n "$api_key" ]] || die "OPENVIKING_OPENCODE_WRITE_OVCLI=1 requires OPENVIKING_API_KEY or OPENVIKING_BEARER_TOKEN"
+  [[ -n "$url" ]] || die "OPENVIKING_OPENCODE_WRITE_OVCLI=1 需要 OPENVIKING_URL 或 OPENVIKING_BASE_URL"
+  [[ -n "$api_key" ]] || die "OPENVIKING_OPENCODE_WRITE_OVCLI=1 需要 OPENVIKING_API_KEY 或 OPENVIKING_BEARER_TOKEN"
   need_command node
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    info "would write OpenViking CLI config: $OVCLI_FILE"
+    info "将写入 OpenViking CLI 配置：$OVCLI_FILE"
     return 0
   fi
 
@@ -150,7 +150,7 @@ const config = {
 fs.writeFileSync(file, JSON.stringify(config, null, 2) + "\n", { mode: 0o600 })
 NODE
   chmod 600 "$OVCLI_FILE"
-  info "wrote OpenViking CLI config: $OVCLI_FILE"
+  info "已写入 OpenViking CLI 配置：$OVCLI_FILE"
 }
 
 install_plugin() {
@@ -165,46 +165,46 @@ install_plugin() {
 
   if [[ "$UNINSTALL" == "1" ]]; then
     if [[ "$DRY_RUN" == "1" ]]; then
-      info "would remove $target"
+      info "将删除 $target"
     else
       rm -f "$target"
-      info "removed $target"
+      info "已删除 $target"
     fi
     return 0
   fi
 
-  info "plugin URL: $PLUGIN_URL"
-  info "install dir: $PLUGIN_DIR"
+  info "插件下载地址：$PLUGIN_URL"
+  info "安装目录：$PLUGIN_DIR"
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    info "would download plugin and install $target"
+    info "将下载插件并安装到 $target"
   else
     mkdir -p "$PLUGIN_DIR"
     download_file "$PLUGIN_URL" "$tmp"
     if [[ -f "$target" ]]; then
       if cmp -s "$tmp" "$target"; then
-        info "plugin already up to date: $target"
+        info "插件已是最新：$target"
       else
         cp -p "$target" "${target}.bak.$(date +%Y%m%d%H%M%S)"
         install -m 0644 "$tmp" "$target"
-        info "updated plugin: $target"
+        info "已更新插件：$target"
       fi
     else
       install -m 0644 "$tmp" "$target"
-      info "installed plugin: $target"
+      info "已安装插件：$target"
     fi
   fi
 
   if [[ -n "${OPENVIKING_API_KEY:-${OPENVIKING_BEARER_TOKEN:-}}" ]]; then
-    info "OpenViking credentials: using environment variables"
+    info "OpenViking 凭据：使用环境变量"
   elif has_ovcli_config; then
-    info "OpenViking credentials: using $OVCLI_FILE"
+    info "OpenViking 凭据：使用 $OVCLI_FILE"
   else
-    warn "no OpenViking user API key found; set OPENVIKING_API_KEY or configure $OVCLI_FILE"
+    warn "未找到 OpenViking USER API Key；请设置 OPENVIKING_API_KEY 或配置 $OVCLI_FILE"
   fi
 
-  info "done. Start OpenCode with: opencode"
-  info "debug logs: OPENVIKING_DEBUG=1 opencode"
+  info "安装完成。启动 OpenCode：opencode"
+  info "调试日志开启方式：OPENVIKING_DEBUG=1 opencode"
 }
 
 install_plugin
