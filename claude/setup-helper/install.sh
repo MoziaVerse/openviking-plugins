@@ -264,7 +264,7 @@ render_mcp_config() {
     ' "$mcp_json" > "$tmp"
   mv "$tmp" "$mcp_json"
   chmod 600 "$mcp_json" 2>/dev/null || true
-  info "已渲染 Claude MCP 地址和认证头：$mcp_url（token 不显示）"
+  info "已渲染 Claude MCP 地址和认证头：${mcp_url}（token 不显示）"
 }
 
 render_mcp_config
