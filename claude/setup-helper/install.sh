@@ -239,6 +239,9 @@ fi
 render_mcp_config() {
   local mcp_json="$PLUGIN_DIR/.mcp.json"
   local base_url="${OPENVIKING_URL:-${CURRENT_URL:-http://127.0.0.1:1933}}"
+  local api_key="${OPENVIKING_API_KEY:-${CURRENT_KEY:-}}"
+  local account="${OPENVIKING_ACCOUNT:-${CURRENT_ACCOUNT:-}}"
+  local user="${OPENVIKING_USER:-${CURRENT_USER:-}}"
   local mcp_url tmp
   base_url="${base_url%/}"
   mcp_url="$base_url/mcp"
@@ -247,9 +250,21 @@ render_mcp_config() {
     exit 1
   fi
   tmp=$(mktemp "$mcp_json.XXXXXX") || { err 'mktemp 执行失败'; exit 1; }
-  jq --arg url "$mcp_url" '.openviking.url = $url' "$mcp_json" > "$tmp"
+  jq \
+    --arg url "$mcp_url" \
+    --arg auth "${api_key:+Bearer $api_key}" \
+    --arg account "$account" \
+    --arg user "$user" \
+    '
+      .openviking.url = $url
+      | .openviking.headers = (.openviking.headers // {})
+      | if $auth != "" then .openviking.headers.Authorization = $auth else del(.openviking.headers.Authorization) end
+      | if $account != "" then .openviking.headers["X-OpenViking-Account"] = $account else del(.openviking.headers["X-OpenViking-Account"]) end
+      | if $user != "" then .openviking.headers["X-OpenViking-User"] = $user else del(.openviking.headers["X-OpenViking-User"]) end
+    ' "$mcp_json" > "$tmp"
   mv "$tmp" "$mcp_json"
-  info "已渲染 Claude MCP 地址：$mcp_url"
+  chmod 600 "$mcp_json" 2>/dev/null || true
+  info "已渲染 Claude MCP 地址和认证头：$mcp_url（token 不显示）"
 }
 
 render_mcp_config
@@ -368,20 +383,25 @@ install_legacy() {
   local hooks_src="$plugin_dir/hooks/hooks.json"
   local settings="$HOME/.claude/settings.json"
   local legacy_base_url="${OPENVIKING_URL:-${CURRENT_URL:-http://127.0.0.1:1933}}"
+  local api_key="${OPENVIKING_API_KEY:-${CURRENT_KEY:-}}"
+  local account="${OPENVIKING_ACCOUNT:-${CURRENT_ACCOUNT:-}}"
+  local user="${OPENVIKING_USER:-${CURRENT_USER:-}}"
   local ts; ts=$(date +%Y%m%d-%H%M%S)
+  local -a mcp_headers=()
   legacy_base_url="${legacy_base_url%/}"
 
   info "兼容模式：注册 MCP 服务，并把 hooks 合并到 $settings"
 
-  # 1) MCP server. Single-quoted ${VAR} literals so Claude Code expands them at
-  # MCP launch time using whatever the rc wrapper has injected.
+  # 1) MCP server. Render the current USER API Key into Claude's local MCP
+  # config so authentication does not depend on the shell wrapper being active.
+  [ -n "$api_key" ] && mcp_headers+=(--header "Authorization: Bearer $api_key")
+  [ -n "$account" ] && mcp_headers+=(--header "X-OpenViking-Account: $account")
+  [ -n "$user" ] && mcp_headers+=(--header "X-OpenViking-User: $user")
   info 'claude mcp add openviking（用户作用域）'
   claude mcp remove openviking -s user >/dev/null 2>&1 || true
   claude mcp add --scope user --transport http openviking \
     "$legacy_base_url/mcp" \
-    --header 'Authorization: Bearer ${OPENVIKING_API_KEY:-}' \
-    --header 'X-OpenViking-Account: ${OPENVIKING_ACCOUNT:-}' \
-    --header 'X-OpenViking-User: ${OPENVIKING_USER:-}' || {
+    "${mcp_headers[@]}" || {
       err 'claude mcp add 执行失败'
       return 1
     }

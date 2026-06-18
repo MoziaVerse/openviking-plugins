@@ -89,6 +89,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugin
 
 服务器地址和 API key 必须对应同一套 OpenViking 服务，避免写入到错误服务器。
 
+Claude Code 的 `/mcp` 没有单独 token；安装脚本会复用这里的 USER API Key，并写入本机 Claude MCP 配置。不要在日常客户端里使用 root/admin key。
+
 `~/.openviking/ovcli.conf` 示例：
 
 ```json

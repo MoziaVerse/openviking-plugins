@@ -58,6 +58,8 @@ source ~/.zshrc
 
 服务器地址和 API key 必须对应同一套 OpenViking 服务：
 
+Claude Code 的 `/mcp` 没有单独 token；安装脚本会复用 `~/.openviking/ovcli.conf` 中的 USER API Key，并写入本机 Claude MCP 配置。
+
 ```json
 {
   "url": "http://your-openviking-server:1933",

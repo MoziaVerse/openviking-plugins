@@ -5,12 +5,11 @@
 # `git fetch + reset --hard` of the plugin checkout — no need to re-run
 # the installer just to refresh this wrapper.
 #
-# The MCP server URL and bearer token end up in `.mcp.json` rather than
-# in the model's per-process env, so Claude Code needs the OpenViking
-# credentials in the env at `claude` launch. The wrapper pulls them from
-# ovcli.conf and injects them as a prefix, so the user doesn't need to
-# `export OPENVIKING_API_KEY` globally and risk leaking it into other
-# subprocesses.
+# The installer renders the MCP server URL and bearer token into Claude's
+# local MCP config. This wrapper still injects credentials at `claude`
+# launch for hooks, commands, statusline, and older configs that read env.
+# The user doesn't need to `export OPENVIKING_API_KEY` globally and risk
+# leaking it into unrelated subprocesses.
 #
 # Besides `claude`, any extra launch commands listed in
 # $OPENVIKING_CC_WRAP_EXTRA (set by the installer in your shell rc, one
