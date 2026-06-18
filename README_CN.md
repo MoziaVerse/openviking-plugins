@@ -7,7 +7,7 @@
 - `chat.message`：对标 Codex `UserPromptSubmit`，用户消息进入模型前检索 OpenViking，并注入 `<openviking-context>` 上下文。
 - `session.idle`：对标 Codex `Stop`，回合结束后从 OpenCode session 读取完整 user/assistant 文本，增量写入 OpenViking session。
 - `experimental.session.compacting`：对标 Codex `PreCompact`，压缩前补抓消息并提交 OpenViking session。
-- 确定性 session 命名：OpenCode session `abc` 对应 OpenViking session `oc-abc`。
+- 确定性 session 命名：OpenCode session `abc` 对应 OpenViking session `<user>-opencode-abc`。
 
 本插件不再实现 `message.updated` / `message.part.updated` 写入，不提供 `openviking_*` 或 `mem*` 工具，不做定时 commit，也不注入 `shell.env`。手动读写请单独配置 OpenViking MCP。
 

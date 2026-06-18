@@ -9,7 +9,7 @@ See [README_CN.md](./README_CN.md) for the primary Chinese documentation.
 - Auto-recalls relevant memories on `chat.message`, matching Codex `UserPromptSubmit`.
 - Captures completed user/assistant turns only on `session.idle`, matching Codex `Stop`.
 - Commits the OpenViking session before OpenCode compaction via `experimental.session.compacting`, matching Codex `PreCompact`.
-- Uses deterministic OpenViking session ids: `oc-<opencode-session-id>`.
+- Uses deterministic OpenViking session ids: `<user>-opencode-<opencode-session-id>`.
 
 It intentionally does not expose custom `openviking_*` or `mem*` tools. Manual read/write/search/delete/resource operations should come from the OpenViking MCP integration.
 

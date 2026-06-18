@@ -176,12 +176,12 @@ try {
   })
 
   assert.equal(state.messages.length, 2, "session.idle should capture user and assistant messages")
-  assert.equal(state.messages[0].sessionId, `oc-${sessionID}`)
+  assert.equal(state.messages[0].sessionId, `docker_user-opencode-${sessionID}`)
 
   const compactOutput = { context: [] as string[], prompt: undefined as string | undefined }
   await hooks["experimental.session.compacting"]!({ sessionID }, compactOutput)
   assert.equal(state.commits.length, 1, "compacting hook should commit the OpenViking session")
-  assert.match(compactOutput.context.join("\n"), /OpenViking session oc-oc-smoke-session is committed/)
+  assert.match(compactOutput.context.join("\n"), /OpenViking session docker_user-opencode-oc-smoke-session is committed/)
 
   await hooks.dispose?.()
   console.log("OpenViking OpenCode plugin smoke test passed")

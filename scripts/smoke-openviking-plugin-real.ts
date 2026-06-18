@@ -65,8 +65,9 @@ function safeSessionId(value: string): string {
   return String(value || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_")
 }
 
-function deriveOpenVikingSessionId(opencodeSessionId: string): string {
-  return `oc-${safeSessionId(opencodeSessionId)}`
+function deriveOpenVikingSessionId(opencodeSessionId: string, config: RuntimeConfig): string {
+  const user = safeSessionId(config.user || config.account || "opencode")
+  return `${user}-opencode-${safeSessionId(opencodeSessionId)}`
 }
 
 function buildHeaders(config: RuntimeConfig): Record<string, string> {
@@ -151,7 +152,7 @@ process.env.OPENVIKING_OPENCODE_STATE_DIR = stateDir
 
 const marker = `ov-real-smoke-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 const sessionID = `real-smoke-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-const ovSessionId = deriveOpenVikingSessionId(sessionID)
+const ovSessionId = deriveOpenVikingSessionId(sessionID, runtimeConfig)
 
 const userMessage =
   `请记住这个安全测试偏好：OpenCode Docker real smoke marker 是 ${marker}。` +

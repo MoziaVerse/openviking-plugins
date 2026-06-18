@@ -28,10 +28,10 @@ Match the Codex OpenViking memory plugin's core behavior in OpenCode without ext
 The OpenViking session id is deterministic:
 
 ```text
-oc-<safe-opencode-session-id>
+<safe-user>-opencode-<safe-opencode-session-id>
 ```
 
-This mirrors Codex's `cx-<safe-codex-session-id>` pattern while using an OpenCode prefix.
+This keeps the same deterministic-session idea as Codex while making Studio browsing easier by grouping sessions by user and tool.
 
 ## Known Difference
 

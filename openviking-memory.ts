@@ -214,8 +214,9 @@ function safeId(value: string | undefined): string {
   return String(value || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_")
 }
 
-function deriveOvSessionId(opencodeSessionId: string): string {
-  return `oc-${safeId(opencodeSessionId)}`
+function deriveOvSessionId(opencodeSessionId: string, config: OpenVikingConfig): string {
+  const user = safeId(config.user || config.account || "opencode")
+  return `${user}-opencode-${safeId(opencodeSessionId)}`
 }
 
 function stateDir(): string {
@@ -259,8 +260,8 @@ async function saveState(state: SessionState): Promise<void> {
   await rename(tmpPath, finalPath)
 }
 
-function resolveOvSessionId(state: SessionState): string {
-  if (!state.ovSessionId) state.ovSessionId = deriveOvSessionId(state.opencodeSessionId)
+function resolveOvSessionId(state: SessionState, config: OpenVikingConfig): string {
+  if (!state.ovSessionId) state.ovSessionId = deriveOvSessionId(state.opencodeSessionId, config)
   return state.ovSessionId
 }
 
@@ -338,7 +339,7 @@ async function captureSessionMessages(
   logger: ReturnType<typeof createLogger>,
 ): Promise<{ state: SessionState; appended: number }> {
   const state = await loadState(sessionId)
-  const ovSessionId = resolveOvSessionId(state)
+  const ovSessionId = resolveOvSessionId(state, config)
   const captured = new Set(state.capturedMessageIds)
   const messages = await fetchOpenCodeSessionMessages(input.client, sessionId)
   let appended = 0
