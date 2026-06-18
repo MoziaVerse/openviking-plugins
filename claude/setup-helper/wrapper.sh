@@ -29,11 +29,17 @@
 _openviking_run() {
   local _ov_conf="${OPENVIKING_CLI_CONFIG_FILE:-$HOME/.openviking/ovcli.conf}"
   if [ -f "$_ov_conf" ] && command -v jq >/dev/null 2>&1; then
-    local _ov_url _ov_key
-    _ov_url=$(jq -r '.url // empty'     "$_ov_conf" 2>/dev/null)
-    _ov_key=$(jq -r '.api_key // empty' "$_ov_conf" 2>/dev/null)
+    local _ov_url _ov_key _ov_account _ov_user _ov_peer
+    _ov_url=$(jq -r '.url // empty'      "$_ov_conf" 2>/dev/null)
+    _ov_key=$(jq -r '.api_key // empty'  "$_ov_conf" 2>/dev/null)
+    _ov_account=$(jq -r '.account // empty' "$_ov_conf" 2>/dev/null)
+    _ov_user=$(jq -r '.user // empty'       "$_ov_conf" 2>/dev/null)
+    _ov_peer=$(jq -r '.peer_id // .agent_id // empty' "$_ov_conf" 2>/dev/null)
     OPENVIKING_URL="${OPENVIKING_URL:-$_ov_url}" \
     OPENVIKING_API_KEY="${OPENVIKING_API_KEY:-$_ov_key}" \
+    OPENVIKING_ACCOUNT="${OPENVIKING_ACCOUNT:-$_ov_account}" \
+    OPENVIKING_USER="${OPENVIKING_USER:-$_ov_user}" \
+    OPENVIKING_PEER_ID="${OPENVIKING_PEER_ID:-$_ov_peer}" \
       command "$@"
   else
     command "$@"

@@ -115,6 +115,9 @@ chmod 700 "$OV_HOME" 2>/dev/null || true
 
 CURRENT_URL=""
 CURRENT_KEY=""
+CURRENT_ACCOUNT=""
+CURRENT_USER=""
+CURRENT_PEER=""
 if [ -f "$OVCLI_CONF" ]; then
   CURRENT_URL=$(jq -r '.url // ""' "$OVCLI_CONF" 2>/dev/null || true)
   CURRENT_KEY=$(jq -r '.api_key // ""' "$OVCLI_CONF" 2>/dev/null || true)
@@ -165,12 +168,31 @@ if [ -z "$CURRENT_URL" ] || [ -z "$CURRENT_KEY" ]; then
     backup="$OVCLI_CONF.bak.$(date +%s)"
     cp "$OVCLI_CONF" "$backup"
     info "已备份原配置 → $backup"
+    tmp_conf=$(mktemp "$OVCLI_CONF.XXXXXX") || { err 'mktemp 执行失败'; exit 1; }
+    jq --arg url "$CURRENT_URL" --arg key "$CURRENT_KEY" \
+      '. + {url: $url, api_key: $key}' "$OVCLI_CONF" > "$tmp_conf"
+    mv "$tmp_conf" "$OVCLI_CONF"
+  else
+    jq -n --arg url "$CURRENT_URL" --arg key "$CURRENT_KEY" \
+      '{url: $url, api_key: $key}' > "$OVCLI_CONF"
   fi
-  jq -n --arg url "$CURRENT_URL" --arg key "$CURRENT_KEY" \
-    '{url: $url, api_key: $key}' > "$OVCLI_CONF"
   chmod 600 "$OVCLI_CONF"
   info "已写入 $OVCLI_CONF（权限 0600）"
 fi
+
+if [ -f "$OVCLI_CONF" ]; then
+  CURRENT_URL=$(jq -r '.url // ""' "$OVCLI_CONF" 2>/dev/null || true)
+  CURRENT_KEY=$(jq -r '.api_key // ""' "$OVCLI_CONF" 2>/dev/null || true)
+  CURRENT_ACCOUNT=$(jq -r '.account // ""' "$OVCLI_CONF" 2>/dev/null || true)
+  CURRENT_USER=$(jq -r '.user // ""' "$OVCLI_CONF" 2>/dev/null || true)
+  CURRENT_PEER=$(jq -r '.peer_id // .agent_id // ""' "$OVCLI_CONF" 2>/dev/null || true)
+fi
+
+[ -n "$CURRENT_URL" ] && export OPENVIKING_URL="${OPENVIKING_URL:-$CURRENT_URL}"
+[ -n "$CURRENT_KEY" ] && export OPENVIKING_API_KEY="${OPENVIKING_API_KEY:-$CURRENT_KEY}"
+[ -n "$CURRENT_ACCOUNT" ] && export OPENVIKING_ACCOUNT="${OPENVIKING_ACCOUNT:-$CURRENT_ACCOUNT}"
+[ -n "$CURRENT_USER" ] && export OPENVIKING_USER="${OPENVIKING_USER:-$CURRENT_USER}"
+[ -n "$CURRENT_PEER" ] && export OPENVIKING_PEER_ID="${OPENVIKING_PEER_ID:-$CURRENT_PEER}"
 
 # ----- 3. Clone / refresh repo -----
 
@@ -213,6 +235,24 @@ if [ ! -f "$WRAPPER_SRC" ]; then
   err "未找到 wrapper 源文件：$WRAPPER_SRC"
   exit 1
 fi
+
+render_mcp_config() {
+  local mcp_json="$PLUGIN_DIR/.mcp.json"
+  local base_url="${OPENVIKING_URL:-${CURRENT_URL:-http://127.0.0.1:1933}}"
+  local mcp_url tmp
+  base_url="${base_url%/}"
+  mcp_url="$base_url/mcp"
+  if [ ! -f "$mcp_json" ]; then
+    err "未找到 MCP 配置文件：$mcp_json"
+    exit 1
+  fi
+  tmp=$(mktemp "$mcp_json.XXXXXX") || { err 'mktemp 执行失败'; exit 1; }
+  jq --arg url "$mcp_url" '.openviking.url = $url' "$mcp_json" > "$tmp"
+  mv "$tmp" "$mcp_json"
+  info "已渲染 Claude MCP 地址：$mcp_url"
+}
+
+render_mcp_config
 
 case "${SHELL:-}" in
   */zsh)  RC="$HOME/.zshrc" ;;
@@ -327,7 +367,9 @@ install_legacy() {
   local plugin_dir="$PLUGIN_DIR"
   local hooks_src="$plugin_dir/hooks/hooks.json"
   local settings="$HOME/.claude/settings.json"
+  local legacy_base_url="${OPENVIKING_URL:-${CURRENT_URL:-http://127.0.0.1:1933}}"
   local ts; ts=$(date +%Y%m%d-%H%M%S)
+  legacy_base_url="${legacy_base_url%/}"
 
   info "兼容模式：注册 MCP 服务，并把 hooks 合并到 $settings"
 
@@ -336,7 +378,7 @@ install_legacy() {
   info 'claude mcp add openviking（用户作用域）'
   claude mcp remove openviking -s user >/dev/null 2>&1 || true
   claude mcp add --scope user --transport http openviking \
-    '${OPENVIKING_URL:-http://127.0.0.1:1933}/mcp' \
+    "$legacy_base_url/mcp" \
     --header 'Authorization: Bearer ${OPENVIKING_API_KEY:-}' \
     --header 'X-OpenViking-Account: ${OPENVIKING_ACCOUNT:-}' \
     --header 'X-OpenViking-User: ${OPENVIKING_USER:-}' || {
