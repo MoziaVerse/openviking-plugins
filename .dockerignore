@@ -1,0 +1,8 @@
+.git
+node_modules
+openviking-config.json
+openviking-memory.log
+openviking-session-map.json
+*.corrupted.*
+npm-debug.log
+.DS_Store
