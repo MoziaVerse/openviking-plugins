@@ -1,0 +1,24 @@
+{
+  "endpoint": "http://localhost:1933",
+  "apiKey": "",
+  "account": "default",
+  "user": "opencode",
+  "agent": "opencode",
+  "enabled": true,
+  "timeoutMs": 30000,
+  "sessionIdTemplate": "{user}-{tool}-{session}",
+  "autoCommitOnCompact": true,
+  "compactKeepRecentCount": 0,
+  "autoCommit": {
+    "enabled": true,
+    "intervalMinutes": 10
+  },
+  "autoRecall": {
+    "enabled": true,
+    "limit": 6,
+    "scoreThreshold": 0.15,
+    "maxContentChars": 500,
+    "preferAbstract": true,
+    "tokenBudget": 2000
+  }
+}

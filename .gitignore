@@ -1,0 +1,7 @@
+.DS_Store
+node_modules/
+dist/
+openviking-config.json
+openviking-memory.log
+openviking-session-map.json
+*.corrupted.*

@@ -1,0 +1,16 @@
+{
+  "name": "openviking-opencode-plugins",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "OpenViking memory plugin for OpenCode with Codex-style automatic recall, capture, compaction commit, and manual tools.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "install:local": "node scripts/install-local.mjs"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "latest",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  }
+}
