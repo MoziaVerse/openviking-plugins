@@ -13,18 +13,21 @@ usage() {
 OpenViking plugins installer
 
 Usage:
+  bash <(curl -fsSL https://raw.githubusercontent.com/${REPO_DEFAULT}/main/scripts/install.sh) claude
   bash <(curl -fsSL https://raw.githubusercontent.com/${REPO_DEFAULT}/main/scripts/install.sh) codex
   bash <(curl -fsSL https://raw.githubusercontent.com/${REPO_DEFAULT}/main/scripts/install.sh) opencode
   bash <(curl -fsSL https://raw.githubusercontent.com/${REPO_DEFAULT}/main/scripts/install.sh) all
 
 Targets:
+  claude     Install the Claude Code memory plugin.
   codex      Install the Codex memory plugin.
   opencode   Install the OpenCode memory plugin.
-  all        Install both plugins.
+  all        Install all plugins.
 
 Environment:
   OPENVIKING_PLUGINS_REPO                  GitHub repo, default: ${REPO_DEFAULT}
   OPENVIKING_PLUGINS_REF                   Git ref, default: main
+  OPENVIKING_PLUGINS_CLAUDE_INSTALL_URL    Direct Claude Code installer URL
   OPENVIKING_PLUGINS_CODEX_INSTALL_URL     Direct Codex installer URL
   OPENVIKING_PLUGINS_OPENCODE_INSTALL_URL  Direct OpenCode installer URL
 
@@ -62,6 +65,9 @@ run_installer() {
   shift 2
 
   case "$name" in
+    claude)
+      url="${OPENVIKING_PLUGINS_CLAUDE_INSTALL_URL:-$default_url}"
+      ;;
     codex)
       url="${OPENVIKING_PLUGINS_CODEX_INSTALL_URL:-$default_url}"
       ;;
@@ -80,10 +86,14 @@ run_installer() {
   trap - RETURN
 }
 
+CLAUDE_URL="https://raw.githubusercontent.com/${REPO}/${REF}/claude/setup-helper/install.sh"
 CODEX_URL="https://raw.githubusercontent.com/${REPO}/${REF}/codex/setup-helper/install.sh"
 OPENCODE_URL="https://raw.githubusercontent.com/${REPO}/${REF}/opencode/setup-helper/install.sh"
 
 case "$TARGET" in
+  claude)
+    run_installer claude "$CLAUDE_URL" "$@"
+    ;;
   codex)
     run_installer codex "$CODEX_URL" "$@"
     ;;
@@ -91,6 +101,7 @@ case "$TARGET" in
     run_installer opencode "$OPENCODE_URL" "$@"
     ;;
   all)
+    run_installer claude "$CLAUDE_URL" "$@"
     run_installer codex "$CODEX_URL" "$@"
     run_installer opencode "$OPENCODE_URL" "$@"
     ;;

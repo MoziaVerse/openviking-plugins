@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Company OpenViking plugins for Codex and OpenCode.",
+  "description": "Company OpenViking plugins for Claude Code, Codex, and OpenCode.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "install:opencode:local": "node opencode/scripts/install-local.mjs",
     "smoke:opencode:docker": "node --import tsx opencode/scripts/smoke-openviking-plugin.ts",
     "smoke:opencode:real": "node --import tsx opencode/scripts/smoke-openviking-plugin-real.ts",
-    "check:codex": "node --check codex/scripts/session-state.mjs && node --check codex/scripts/config.mjs && node --check codex/scripts/auto-capture.mjs && node --check codex/scripts/auto-recall.mjs && node --check codex/scripts/pre-compact-capture.mjs && node --check codex/scripts/session-start-commit.mjs"
+    "check:codex": "node --check codex/scripts/session-state.mjs && node --check codex/scripts/config.mjs && node --check codex/scripts/auto-capture.mjs && node --check codex/scripts/auto-recall.mjs && node --check codex/scripts/pre-compact-capture.mjs && node --check codex/scripts/session-start-commit.mjs",
+    "check:claude": "node --check claude/scripts/lib/ov-session.mjs && node --check claude/scripts/config.mjs && node --check claude/scripts/auto-capture.mjs && node --check claude/scripts/auto-recall.mjs && node --check claude/scripts/pre-compact.mjs && node --check claude/scripts/session-start.mjs && node --check claude/scripts/session-end.mjs && node --check claude/scripts/subagent-start.mjs && node --check claude/scripts/subagent-stop.mjs && node --check claude/scripts/ov-status.mjs && node --check claude/scripts/statusline.mjs",
+    "test:claude": "node --test claude/scripts/lib/*.test.mjs",
+    "check:all": "npm run typecheck && npm run check:codex && npm run check:claude"
   },
   "devDependencies": {
     "@opencode-ai/plugin": "latest",
