@@ -163,7 +163,7 @@ try {
     message: { id: "msg-user-2", role: "user" },
     parts: [{ id: "part-user-2", type: "text", text: "What should we remember about Docker tests?", messageID: "msg-user-2" }],
   }
-  await hooks["chat.message"]!({ sessionID, messageID: "msg-user-2" }, output as any)
+  await hooks["chat.message"]!({ sessionID } as any, output as any)
   assert.match(output.parts[0].text, /<openviking-context/, "chat.message should inject OpenViking context")
   assert.match(output.parts[0].text, /docker-smoke\.md/, "injected memory should include mock URI")
 

@@ -275,6 +275,8 @@ function normalizeClientMessages(response: any): any[] {
 
 async function fetchOpenCodeSessionMessages(client: any, sessionId: string): Promise<any[]> {
   const attempts = [
+    () => client.session.messages({ path: { id: sessionId } }),
+    () => client.session.messages({ path: { sessionID: sessionId } }),
     () => client.session.messages({ sessionID: sessionId }, { throwOnError: true }),
     () => client.session.messages({ sessionId }, { throwOnError: true }),
     () => client.session.messages({ sessionID: sessionId }),
@@ -374,6 +376,10 @@ function extractPromptText(output: { parts?: any[] }): string {
     texts.push(part.text)
   }
   return texts.join(" ").trim()
+}
+
+function resolveOutputMessageId(hookInput: { messageID?: string }, output: { message?: { id?: string }; parts?: any[] }): string | undefined {
+  return hookInput.messageID || output.message?.id || output.parts?.find((part) => typeof part?.messageID === "string")?.messageID
 }
 
 function clampScore(value: unknown): number {
@@ -497,7 +503,7 @@ export const OpenVikingMemoryPlugin = async (input: PluginInput): Promise<Hooks>
           id: `prt-ov-recall-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           type: "text",
           sessionID: hookInput.sessionID,
-          messageID: hookInput.messageID,
+          messageID: resolveOutputMessageId(hookInput, output),
           text: context,
           synthetic: true,
         } as any)
