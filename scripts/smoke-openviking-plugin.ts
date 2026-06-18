@@ -1,17 +1,18 @@
 import assert from "node:assert/strict"
-import http from "node:http"
 import { once } from "node:events"
+import { mkdtemp, rm } from "node:fs/promises"
+import http from "node:http"
+import { tmpdir } from "node:os"
+import path from "node:path"
 
 type MockState = {
   messages: Array<{ sessionId: string; role: string; content: string }>
   commits: Array<{ sessionId: string }>
-  createdSessions: Set<string>
 }
 
 const state: MockState = {
   messages: [],
   commits: [],
-  createdSessions: new Set(),
 }
 
 async function readBody(request: http.IncomingMessage): Promise<any> {
@@ -36,13 +37,6 @@ function createMockOpenVikingServer() {
       return
     }
 
-    if (request.method === "GET" && pathname.startsWith("/api/v1/sessions/")) {
-      const sessionId = decodeURIComponent(pathname.replace("/api/v1/sessions/", ""))
-      state.createdSessions.add(sessionId)
-      sendJson(response, 200, { status: "ok", result: { session_id: sessionId } })
-      return
-    }
-
     if (request.method === "POST" && pathname === "/api/v1/search/find") {
       sendJson(response, 200, {
         status: "ok",
@@ -58,7 +52,6 @@ function createMockOpenVikingServer() {
               level: 2,
             },
           ],
-          resources: [],
           skills: [],
           total: 1,
         },
@@ -66,35 +59,18 @@ function createMockOpenVikingServer() {
       return
     }
 
-    if (request.method === "POST" && pathname === "/api/v1/search/search") {
-      sendJson(response, 200, {
-        status: "ok",
-        result: {
-          memories: [
-            {
-              uri: "viking://user/memories/preferences/docker-smoke.md",
-              score: 0.9,
-              abstract: "Docker plugin smoke test memory.",
-              category: "preferences",
-              level: 2,
-            },
-          ],
-          resources: [],
-          skills: [],
-          total: 1,
-        },
-      })
+    if (request.method === "GET" && pathname === "/api/v1/content/read") {
+      sendJson(response, 200, { status: "ok", result: "mock memory content" })
       return
     }
 
     if (request.method === "POST" && pathname.match(/^\/api\/v1\/sessions\/[^/]+\/messages$/)) {
       const sessionId = decodeURIComponent(pathname.split("/")[4])
       const body = await readBody(request)
-      state.createdSessions.add(sessionId)
       state.messages.push({
         sessionId,
         role: body.role,
-        content: body.content ?? body.parts?.map((part: any) => part.text ?? "").join("\n") ?? "",
+        content: body.content ?? "",
       })
       sendJson(response, 200, { status: "ok", result: { session_id: sessionId } })
       return
@@ -107,24 +83,10 @@ function createMockOpenVikingServer() {
         status: "ok",
         result: {
           session_id: sessionId,
-          status: "accepted",
-          task_id: "task-smoke",
+          status: "completed",
           archived: false,
           memories_extracted: 1,
         },
-      })
-      return
-    }
-
-    if (request.method === "GET" && pathname === "/api/v1/content/read") {
-      sendJson(response, 200, { status: "ok", result: "mock content" })
-      return
-    }
-
-    if (request.method === "GET" && pathname === "/api/v1/fs/ls") {
-      sendJson(response, 200, {
-        status: "ok",
-        result: [{ uri: "viking://user/memories/preferences/docker-smoke.md", name: "docker-smoke.md", isDir: false }],
       })
       return
     }
@@ -134,6 +96,7 @@ function createMockOpenVikingServer() {
 }
 
 const server = createMockOpenVikingServer()
+const stateDir = await mkdtemp(path.join(tmpdir(), "ov-opencode-smoke-"))
 server.listen(1933, "127.0.0.1")
 await once(server, "listening")
 
@@ -141,8 +104,7 @@ try {
   process.env.OPENVIKING_URL = "http://127.0.0.1:1933"
   process.env.OPENVIKING_ACCOUNT = "smoke"
   process.env.OPENVIKING_USER = "docker_user"
-  process.env.OPENVIKING_AGENT_ID = "opencode"
-  process.env.OPENVIKING_SESSION_ID_TEMPLATE = "{user}-{tool}-{session}"
+  process.env.OPENVIKING_OPENCODE_STATE_DIR = stateDir
 
   const { default: OpenVikingMemoryPlugin } = await import("../openviking-memory.ts")
 
@@ -179,9 +141,31 @@ try {
   assert.equal(typeof hooks.event, "function", "event hook should be registered")
   assert.equal(typeof hooks["chat.message"], "function", "chat.message hook should be registered")
   assert.equal(typeof hooks["experimental.session.compacting"], "function", "compacting hook should be registered")
-  assert.ok(hooks.tool?.openviking_health, "openviking_health tool should be registered")
-  assert.ok(hooks.tool?.openviking_search, "openviking_search tool should be registered")
-  assert.ok(hooks.tool?.openviking_commit, "openviking_commit tool should be registered")
+  assert.equal(hooks.tool, undefined, "Codex-aligned plugin should not expose custom tools")
+
+  await hooks.event!({
+    event: {
+      id: "evt-message-updated",
+      type: "message.updated",
+      properties: { info: { id: "msg-stream", sessionID, role: "user" } },
+    } as any,
+  })
+  await hooks.event!({
+    event: {
+      id: "evt-message-part-updated",
+      type: "message.part.updated",
+      properties: { part: { sessionID, messageID: "msg-stream", type: "text", text: "streaming text" } },
+    } as any,
+  })
+  assert.equal(state.messages.length, 0, "message.* events should not write to OpenViking")
+
+  const output = {
+    message: { id: "msg-user-2", role: "user" },
+    parts: [{ id: "part-user-2", type: "text", text: "What should we remember about Docker tests?", messageID: "msg-user-2" }],
+  }
+  await hooks["chat.message"]!({ sessionID, messageID: "msg-user-2" }, output as any)
+  assert.match(output.parts[0].text, /<openviking-context/, "chat.message should inject OpenViking context")
+  assert.match(output.parts[0].text, /docker-smoke\.md/, "injected memory should include mock URI")
 
   await hooks.event!({
     event: {
@@ -192,35 +176,16 @@ try {
   })
 
   assert.equal(state.messages.length, 2, "session.idle should capture user and assistant messages")
-  assert.equal(state.messages[0].sessionId, `docker_user-opencode-${sessionID}`)
-
-  const output = {
-    message: { id: "msg-user-2", role: "user" },
-    parts: [{ id: "part-user-2", type: "text", text: "What should we remember about Docker tests?", messageID: "msg-user-2" }],
-  }
-  await hooks["chat.message"]!({ sessionID, messageID: "msg-user-2" }, output as any)
-  assert.match(output.parts[0].text, /<relevant-memories>/, "chat.message should inject relevant memories")
-  assert.match(output.parts[0].text, /docker-smoke\.md/, "injected memory should include mock URI")
-
-  const health = await hooks.tool!.openviking_health.execute({}, {
-    sessionID,
-    messageID: "tool-message",
-    agent: "build",
-    directory: "/workspace",
-    worktree: "/workspace",
-    abort: new AbortController().signal,
-    metadata() {},
-    async ask() {},
-  })
-  assert.match(String(health), /healthy/i, "openviking_health should call the mock server")
+  assert.equal(state.messages[0].sessionId, `oc-${sessionID}`)
 
   const compactOutput = { context: [] as string[], prompt: undefined as string | undefined }
   await hooks["experimental.session.compacting"]!({ sessionID }, compactOutput)
   assert.equal(state.commits.length, 1, "compacting hook should commit the OpenViking session")
-  assert.match(compactOutput.context.join("\n"), /OpenViking Memory/, "compacting hook should add context")
+  assert.match(compactOutput.context.join("\n"), /OpenViking session oc-oc-smoke-session is committed/)
 
   await hooks.dispose?.()
   console.log("OpenViking OpenCode plugin smoke test passed")
 } finally {
   server.close()
+  await rm(stateDir, { recursive: true, force: true })
 }

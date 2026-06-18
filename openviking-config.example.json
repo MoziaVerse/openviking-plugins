@@ -3,22 +3,15 @@
   "apiKey": "",
   "account": "default",
   "user": "opencode",
-  "agent": "opencode",
-  "enabled": true,
-  "timeoutMs": 30000,
-  "sessionIdTemplate": "{user}-{tool}-{session}",
-  "autoCommitOnCompact": true,
-  "compactKeepRecentCount": 0,
-  "autoCommit": {
-    "enabled": true,
-    "intervalMinutes": 10
-  },
+  "timeoutMs": 15000,
+  "captureTimeoutMs": 30000,
   "autoRecall": {
     "enabled": true,
     "limit": 6,
-    "scoreThreshold": 0.15,
-    "maxContentChars": 500,
-    "preferAbstract": true,
-    "tokenBudget": 2000
-  }
+    "scoreThreshold": 0.35
+  },
+  "captureAssistantTurns": true,
+  "captureMaxLength": 24000,
+  "autoCommitOnCompact": true,
+  "debug": false
 }

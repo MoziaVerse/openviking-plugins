@@ -2,43 +2,37 @@
 
 ## Goal
 
-Replicate the Codex OpenViking memory plugin behavior in OpenCode using OpenCode's plugin hooks.
+Match the Codex OpenViking memory plugin's core behavior in OpenCode without extra local tools or background features.
 
 ## Hook Mapping
 
 | Codex plugin | Purpose | OpenCode implementation |
 | --- | --- | --- |
-| `SessionStart(startup|clear)` | Commit likely orphaned previous session | Local session map plus auto-commit timer, `session.deleted`, `session.error`, `dispose` |
-| `UserPromptSubmit` | Search memories and inject context | `chat.message` mutates `output.parts` with a synthetic `<relevant-memories>` text part |
-| `Stop` | Append latest user/assistant turns without committing | `message.updated`, `message.part.updated`, and `session.idle` SDK catch-up |
+| `UserPromptSubmit` | Search memories and inject context | `chat.message` injects synthetic `<openviking-context>` text |
+| `Stop` | Append completed turns without committing | `session.idle` fetches OpenCode messages and appends new user/assistant text |
 | `PreCompact` | Catch up transcript and commit before compaction | `experimental.session.compacting` |
-| MCP `/mcp` tools | Manual read/write/search/delete/resource tools | Prefixed custom tools: `openviking_*` |
-| Shell wrapper env | Supply URL/API key/account/user/agent | `shell.env` |
+| MCP `/mcp` tools | Manual read/write/search/delete/resource tools | Configure OpenViking MCP separately |
+
+## Removed Non-Codex Features
+
+- No `message.updated` or `message.part.updated` writes.
+- No custom `openviking_*` tools.
+- No compatibility `mem*` tools.
+- No interval auto-commit scheduler.
+- No `session.deleted` or `session.error` commit behavior.
+- No `shell.env` injection.
+- No system prompt transform.
 
 ## Session IDs
 
-The OpenViking session id is deterministic. Default template:
+The OpenViking session id is deterministic:
 
 ```text
-{user}-{tool}-{session}
+oc-<safe-opencode-session-id>
 ```
 
-For OpenCode this becomes:
+This mirrors Codex's `cx-<safe-codex-session-id>` pattern while using an OpenCode prefix.
 
-```text
-<user>-opencode-<opencode-session-id>
-```
+## Known Difference
 
-Supported placeholders:
-
-- `{account}`
-- `{user}`
-- `{tool}`
-- `{agent}`
-- `{session}`
-
-## Known Differences
-
-OpenCode does not expose the exact Codex `SessionStart` source values (`startup`, `resume`, `clear`). The plugin therefore cannot perfectly reproduce Codex's active-window heuristic. It uses OpenCode lifecycle events and a persisted session map instead.
-
-OpenCode plugin tools are prefixed as `openviking_*` to avoid shadowing built-in tools such as `read`.
+OpenCode does not expose Codex's exact `SessionStart(source=startup|clear|resume)` hook. This plugin does not implement a replacement heuristic, so session recovery after silent process exit should be handled by OpenViking MCP/CLI operations or a future explicit OpenCode hook if one becomes available.

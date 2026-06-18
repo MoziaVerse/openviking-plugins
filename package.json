@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "OpenViking memory plugin for OpenCode with Codex-style automatic recall, capture, compaction commit, and manual tools.",
+  "description": "Codex-aligned OpenViking memory plugin for OpenCode with automatic recall, session.idle capture, and compaction commit.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "install:local": "node scripts/install-local.mjs",

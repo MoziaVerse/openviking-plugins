@@ -8,8 +8,7 @@ type RuntimeConfig = {
   apiKey: string
   account?: string
   user?: string
-  agent?: string
-  sessionIdTemplate: string
+  peerId?: string
 }
 
 type OpenVikingResponse<T = unknown> = {
@@ -54,8 +53,7 @@ function loadRuntimeConfig(): RuntimeConfig {
     apiKey: String(apiKey),
     account: process.env.OPENVIKING_ACCOUNT || cliConfig.account,
     user: process.env.OPENVIKING_USER || cliConfig.user,
-    agent: process.env.OPENVIKING_AGENT_ID || process.env.OPENVIKING_AGENT || cliConfig.agent || cliConfig.agent_id || "opencode",
-    sessionIdTemplate: process.env.OPENVIKING_SESSION_ID_TEMPLATE || "{user}-{tool}-{session}",
+    peerId: process.env.OPENVIKING_PEER_ID || cliConfig.peer_id || cliConfig.peerId,
   }
 
   assert.ok(config.endpoint, "OPENVIKING_URL or OPENVIKING_CLI_CONFIG_FILE.url is required")
@@ -63,25 +61,12 @@ function loadRuntimeConfig(): RuntimeConfig {
   return config
 }
 
-function safeSessionComponent(value: string | undefined, fallback: string): string {
-  const normalized = String(value || fallback)
-    .trim()
-    .replace(/[^a-zA-Z0-9._-]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-  return normalized || fallback
+function safeSessionId(value: string): string {
+  return String(value || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_")
 }
 
-function deriveOpenVikingSessionId(opencodeSessionId: string, config: RuntimeConfig): string {
-  const user = safeSessionComponent(config.user || config.account, "user")
-  const account = safeSessionComponent(config.account, "default")
-  const agent = safeSessionComponent(config.agent, "opencode")
-  const session = safeSessionComponent(opencodeSessionId, "unknown")
-  return config.sessionIdTemplate
-    .replaceAll("{account}", account)
-    .replaceAll("{user}", user)
-    .replaceAll("{tool}", "opencode")
-    .replaceAll("{agent}", agent)
-    .replaceAll("{session}", session)
+function deriveOpenVikingSessionId(opencodeSessionId: string): string {
+  return `oc-${safeSessionId(opencodeSessionId)}`
 }
 
 function buildHeaders(config: RuntimeConfig): Record<string, string> {
@@ -92,7 +77,7 @@ function buildHeaders(config: RuntimeConfig): Record<string, string> {
   }
   if (config.account) headers["X-OpenViking-Account"] = config.account
   if (config.user) headers["X-OpenViking-User"] = config.user
-  if (config.agent) headers["X-OpenViking-Agent"] = config.agent
+  if (config.peerId) headers["X-OpenViking-Actor-Peer"] = config.peerId
   return headers
 }
 
@@ -102,6 +87,15 @@ function unwrap<T>(response: OpenVikingResponse<T>): T {
     throw new Error(error || "OpenViking request failed")
   }
   return response.result as T
+}
+
+async function healthCheck(config: RuntimeConfig): Promise<void> {
+  const response = await fetch(`${config.endpoint}/health`, {
+    method: "GET",
+    headers: buildHeaders(config),
+    signal: AbortSignal.timeout(5000),
+  })
+  assert.ok(response.ok, `OpenViking health check failed: ${response.status}`)
 }
 
 async function requestJson<T>(
@@ -126,39 +120,38 @@ async function requestJson<T>(
   return unwrap<T>(data)
 }
 
-function createToolContext(sessionID: string, timeoutMs = 240000) {
-  return {
-    sessionID,
-    messageID: "real-smoke-tool-message",
-    agent: "opencode",
-    directory: "/workspace",
-    worktree: "/workspace",
-    abort: AbortSignal.timeout(timeoutMs),
-    metadata() {},
-    async ask() {},
-  }
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function parseJsonOrNull(text: string): any | null {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return null
+async function waitForCommittedSession(config: RuntimeConfig, sessionId: string): Promise<any> {
+  const startedAt = Date.now()
+  let latest: any = null
+  while (Date.now() - startedAt < 90000) {
+    latest = await requestJson<any>(
+      config,
+      "GET",
+      `/api/v1/sessions/${encodeURIComponent(sessionId)}?auto_create=false`,
+    )
+    if ((latest.commit_count ?? 0) >= 1) return latest
+    await sleep(3000)
   }
+  return latest
 }
 
 const runtimeConfig = loadRuntimeConfig()
+const stateDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "ov-opencode-real-"))
 
 process.env.OPENVIKING_URL = runtimeConfig.endpoint
 process.env.OPENVIKING_API_KEY = runtimeConfig.apiKey
 if (runtimeConfig.account) process.env.OPENVIKING_ACCOUNT = runtimeConfig.account
 if (runtimeConfig.user) process.env.OPENVIKING_USER = runtimeConfig.user
-if (runtimeConfig.agent) process.env.OPENVIKING_AGENT_ID = runtimeConfig.agent
-process.env.OPENVIKING_SESSION_ID_TEMPLATE = runtimeConfig.sessionIdTemplate
+if (runtimeConfig.peerId) process.env.OPENVIKING_PEER_ID = runtimeConfig.peerId
+process.env.OPENVIKING_OPENCODE_STATE_DIR = stateDir
 
 const marker = `ov-real-smoke-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 const sessionID = `real-smoke-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-const ovSessionId = deriveOpenVikingSessionId(sessionID, runtimeConfig)
+const ovSessionId = deriveOpenVikingSessionId(sessionID)
 
 const userMessage =
   `请记住这个安全测试偏好：OpenCode Docker real smoke marker 是 ${marker}。` +
@@ -198,19 +191,31 @@ const hooks = await OpenVikingMemoryPlugin({
 try {
   assert.equal(typeof hooks.event, "function", "event hook should be registered")
   assert.equal(typeof hooks["chat.message"], "function", "chat.message hook should be registered")
-  assert.ok(hooks.tool?.openviking_health, "openviking_health tool should be registered")
-  assert.ok(hooks.tool?.memcommit, "memcommit tool should be registered")
+  assert.equal(typeof hooks["experimental.session.compacting"], "function", "compacting hook should be registered")
+  assert.equal(hooks.tool, undefined, "Codex-aligned plugin should not expose custom tools")
 
-  const healthText = await hooks.tool.openviking_health.execute({}, createToolContext(sessionID))
-  assert.match(String(healthText), /healthy/i, "real OpenViking health check should pass")
+  await healthCheck(runtimeConfig)
 
   await hooks.event!({
     event: {
-      id: `evt-created-${marker}`,
-      type: "session.created",
-      properties: { sessionID, info: { id: sessionID } },
+      id: `evt-stream-message-${marker}`,
+      type: "message.updated",
+      properties: { info: { id: `msg-stream-${marker}`, sessionID, role: "user" } },
     } as any,
   })
+  await hooks.event!({
+    event: {
+      id: `evt-stream-part-${marker}`,
+      type: "message.part.updated",
+      properties: { part: { sessionID, messageID: `msg-stream-${marker}`, type: "text", text: marker } },
+    } as any,
+  })
+
+  const recallOutput = {
+    message: { id: `msg-recall-${marker}`, role: "user" },
+    parts: [{ id: `part-recall-${marker}`, type: "text", text: `OpenViking Docker smoke marker ${marker}`, messageID: `msg-recall-${marker}` }],
+  }
+  await hooks["chat.message"]!({ sessionID, messageID: `msg-recall-${marker}` }, recallOutput as any)
 
   await hooks.event!({
     event: {
@@ -228,7 +233,7 @@ try {
   assert.equal(sessionInfoBefore.session_id, ovSessionId)
   assert.ok(
     (sessionInfoBefore.message_count ?? sessionInfoBefore.total_message_count ?? 0) >= 2,
-    "real session should contain captured messages before commit",
+    "real session should contain captured messages after session.idle",
   )
 
   const contextBefore = await requestJson<any>(
@@ -238,20 +243,13 @@ try {
   )
   assert.match(JSON.stringify(contextBefore), new RegExp(marker), "real session context should contain the smoke marker")
 
-  const commitText = await hooks.tool.memcommit.execute({}, createToolContext(sessionID, 300000))
-  assert.doesNotMatch(String(commitText), /^Error:/, "memcommit should not fail")
-  const commitResult = parseJsonOrNull(String(commitText))
+  const compactOutput = { context: [] as string[] }
+  await hooks["experimental.session.compacting"]!({ sessionID }, compactOutput)
+  assert.match(compactOutput.context.join("\n"), new RegExp(ovSessionId), "compacting should report committed session")
 
-  const sessionInfoAfter = await requestJson<any>(
-    runtimeConfig,
-    "GET",
-    `/api/v1/sessions/${encodeURIComponent(ovSessionId)}?auto_create=false`,
-  )
+  const sessionInfoAfter = await waitForCommittedSession(runtimeConfig, ovSessionId)
   assert.equal(sessionInfoAfter.session_id, ovSessionId)
-  assert.ok(
-    (sessionInfoAfter.commit_count ?? 0) >= 1 || commitResult?.status === "accepted" || commitResult?.status === "completed",
-    "real session should be committed or accepted for background commit",
-  )
+  assert.ok((sessionInfoAfter.commit_count ?? 0) >= 1, "real session should be committed after compacting")
 
   const sessions = await requestJson<any[]>(
     runtimeConfig,
@@ -263,18 +261,11 @@ try {
     "real session should be visible in OpenViking session list",
   )
 
-  const searchText = await hooks.tool.openviking_find.execute(
-    { query: marker, limit: 5, min_score: 0 },
-    createToolContext(sessionID),
-  )
-  assert.doesNotMatch(String(searchText), /^Error:/, "real OpenViking search should be callable")
-
   console.log(JSON.stringify({
     ok: true,
     endpoint: runtimeConfig.endpoint,
     account: runtimeConfig.account ?? null,
     user: runtimeConfig.user ?? null,
-    agent: runtimeConfig.agent ?? null,
     opencode_session_id: sessionID,
     openviking_session_id: ovSessionId,
     marker,
@@ -282,8 +273,8 @@ try {
     message_count_before_commit: sessionInfoBefore.message_count ?? null,
     total_message_count_after_commit: sessionInfoAfter.total_message_count ?? null,
     commit_count_after_commit: sessionInfoAfter.commit_count ?? null,
-    commit_result: commitResult,
   }, null, 2))
 } finally {
   await hooks.dispose?.()
+  await fs.promises.rm(stateDir, { recursive: true, force: true })
 }
