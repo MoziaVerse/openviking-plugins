@@ -53,7 +53,9 @@ heading() { printf '\n%s%s%s\n' "$BOLD" "$*" "$RESET"; }
 
 git_cmd() {
   if [ -n "$GITHUB_TOKEN_VALUE" ]; then
-    git -c "http.https://github.com/.extraheader=Authorization: Bearer $GITHUB_TOKEN_VALUE" "$@"
+    local basic
+    basic="$(printf 'x-access-token:%s' "$GITHUB_TOKEN_VALUE" | base64 | tr -d '\n')"
+    git -c "http.https://github.com/.extraheader=Authorization: Basic $basic" "$@"
   else
     git "$@"
   fi
