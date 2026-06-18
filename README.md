@@ -37,6 +37,34 @@ bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugin
 bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/install.sh) all
 ```
 
+## 统一卸载
+
+卸载 Claude Code 插件：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/uninstall.sh) claude
+```
+
+卸载 Codex 插件：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/uninstall.sh) codex
+```
+
+卸载 OpenCode 插件：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/uninstall.sh) opencode
+```
+
+全部卸载：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/MoziaVerse/openviking-plugins/main/scripts/uninstall.sh) all
+```
+
+卸载脚本默认只清理本地插件、插件缓存、marketplace 和 shell 加载片段；不会删除 `~/.openviking/ovcli.conf`，也不会删除 OpenViking 服务端数据。需要预览操作可以加 `--dry-run`；需要同时删除本地源码目录可以加 `--remove-repo`。
+
 ## Session 命名
 
 本仓库统一使用“用户 + 工具 + session id”的 OpenViking session 命名方式。
@@ -156,7 +184,8 @@ openviking-plugins/
 ├── codex/
 ├── opencode/
 ├── scripts/
-│   └── install.sh
+│   ├── install.sh
+│   └── uninstall.sh
 ├── package.json
 └── README.md
 ```
